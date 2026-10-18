@@ -1,4 +1,10 @@
-import { isTruncationLine, parseLine, type LogLine, type StructuredLine } from '../log/line.js';
+import {
+  isTruncationLine,
+  parseLine,
+  TRUNCATION_MARKER,
+  type LogLine,
+  type StructuredLine,
+} from '../log/line.js';
 import type { EntityRef, EventPosition, PowerEvent, TagValue } from './types.js';
 
 /**
@@ -73,11 +79,42 @@ export class PowerParser {
   private lastTimeMs = 0;
   readonly diagnostics: ParserDiagnostics = { unrecognized: 0, samples: [] };
 
+  /** Ligne GameState coupée en cours de recollage (voir `feed`). */
+  private split: { text: string; parts: number } | null = null;
+
   constructor(private readonly maxSamples = 50) {}
 
-  /** Traite une ligne brute ; renvoie les événements terminés par cette ligne. */
+  /**
+   * Traite une ligne brute ; renvoie les événements terminés par cette ligne.
+   *
+   * Un nom d'entité peut contenir un saut de ligne (fixture du 18/10, partie abandonnée :
+   * `[entityName=Jeunemort` puis, sur la ligne suivante sans préfixe, `le Brise-monde id=156 …]`).
+   * Une ligne GameState dont un crochet reste ouvert est donc recollée aux lignes brutes qui
+   * suivent, jusqu'à fermeture (au plus MAX_SPLIT_PARTS lignes).
+   */
   feed(text: string): PowerEvent[] {
     this.lineNo++;
+    if (this.split !== null) {
+      const split = this.split;
+      this.split = null;
+      const continuation = parseLine(text).kind === 'raw' && !text.startsWith(TRUNCATION_MARKER);
+      if (continuation && split.parts < MAX_SPLIT_PARTS) {
+        const joined = `${split.text} ${text}`;
+        if (!hasOpenBracket(joined)) return this.process(joined);
+        this.split = { text: joined, parts: split.parts + 1 };
+        return [];
+      }
+      // Jamais refermée : la ligne cassée part en diagnostic, la ligne courante est traitée.
+      return [...this.process(split.text), ...this.process(text)];
+    }
+    if (text.includes('GameState.') && hasOpenBracket(text)) {
+      this.split = { text, parts: 1 };
+      return [];
+    }
+    return this.process(text);
+  }
+
+  private process(text: string): PowerEvent[] {
     const line = parseLine(text);
     const out: PowerEvent[] = [];
     if (line.kind === 'log') this.lastTimeMs = line.timeMs;
@@ -112,10 +149,18 @@ export class PowerParser {
     return out;
   }
 
-  /** Termine l'entité en cours de description (fin de flux). */
+  /**
+   * Fin du flux (fichier rejoué jusqu'au bout, ou session de jeu abandonnée par le LogWatcher) :
+   * termine l'entité en cours et émet `endOfStream`.
+   */
   flush(): PowerEvent[] {
     const out: PowerEvent[] = [];
+    if (this.split !== null) {
+      out.push(...this.process(this.split.text));
+      this.split = null;
+    }
     this.flushInto(out);
+    out.push({ type: 'endOfStream', at: { line: this.lineNo, timeMs: this.lastTimeMs } });
     return out;
   }
 
@@ -198,6 +243,17 @@ export class PowerParser {
     this.diagnostics.unrecognized++;
     if (this.diagnostics.samples.length < this.maxSamples) this.diagnostics.samples.push(text);
   }
+}
+
+const MAX_SPLIT_PARTS = 4;
+
+function hasOpenBracket(text: string): boolean {
+  let depth = 0;
+  for (const ch of text) {
+    if (ch === '[') depth++;
+    else if (ch === ']' && depth > 0) depth--;
+  }
+  return depth > 0;
 }
 
 function isGameStateLine(line: LogLine): line is StructuredLine {

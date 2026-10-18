@@ -65,6 +65,26 @@ describe('PowerParser (synthetic)', () => {
     expect(events[1]).toMatchObject({ type: 'tagChange', tag: 'HEALTH', value: 30 });
   });
 
+  it('recolle un nom d’entité coupé par un saut de ligne', () => {
+    const p = new PowerParser();
+    expect(p.feed(`${GS}    TAG_CHANGE Entity=[entityName=Jeunemort`)).toEqual([]);
+    const events = p.feed(
+      'le Brise-monde id=156 zone=COSMETIC zonePos=0 cardId=PET_9_4 player=9] tag=4901 value=0 ',
+    );
+    expect(events).toMatchObject([
+      { type: 'tagChange', ref: { kind: 'id', id: 156 }, tag: '4901', value: 0 },
+    ]);
+    expect(p.diagnostics.unrecognized).toBe(0);
+  });
+
+  it('ne recolle pas une ligne de troncature', () => {
+    const p = new PowerParser();
+    p.feed(`${GS}    TAG_CHANGE Entity=[entityName=Jeunemort`);
+    const events = p.feed('Truncating log, which has reached the size limit of 10000KB');
+    expect(events.map((e) => e.type)).toEqual(['truncated']);
+    expect(p.diagnostics.unrecognized).toBe(1);
+  });
+
   it('ignore PowerTaskList pour ne jamais compter deux fois', () => {
     const p = new PowerParser();
     expect(p.feed(`${PTL}TAG_CHANGE Entity=27 tag=HEALTH value=30 `)).toEqual([]);
@@ -85,6 +105,24 @@ describe('PowerParser (synthetic)', () => {
 });
 
 describe('Pipeline (synthetic)', () => {
+  const startBg = (pipe: Pipeline): void => {
+    pipe.feedLine(`${GS}CREATE_GAME`);
+    pipe.feedLine(`${GS}    GameEntity EntityID=4`);
+    pipe.feedLine('D 06:11:54.5321202 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS');
+    pipe.feedLine(`${GS}TAG_CHANGE Entity=GameEntity tag=TURN value=3 `);
+  };
+
+  it('archive comme interrompue une partie remplacée par une nouvelle sans fin', () => {
+    const pipe = new Pipeline();
+    startBg(pipe);
+    startBg(pipe);
+    expect(pipe.history).toHaveLength(1);
+    expect(pipe.history[0]?.outcome).toBe('interrupted');
+    expect(pipe.history[0]?.finalPlace).toBeUndefined();
+    expect(pipe.bg.outcome).toBe('inProgress');
+    expect(pipe.bg.gameIndex).toBe(2);
+  });
+
   it('ne remet pas l’état à zéro sur une troncature', () => {
     const pipe = new Pipeline();
     pipe.feedLine(`${GS}CREATE_GAME`);

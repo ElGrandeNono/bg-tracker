@@ -68,6 +68,8 @@ export type PowerEvent =
   | (Base & { readonly type: 'gameInfo'; readonly key: string; readonly value: string })
   | (Base & { readonly type: 'playerName'; readonly playerId: number; readonly name: string })
   /** Le jeu a tronqué le fichier (limite de taille atteinte). */
-  | (Base & { readonly type: 'truncated' });
+  | (Base & { readonly type: 'truncated' })
+  /** Plus rien ne viendra de ce flux (fin du fichier rejoué, ou session de jeu remplacée). */
+  | (Base & { readonly type: 'endOfStream' });
 
 export type PowerEventType = PowerEvent['type'];
