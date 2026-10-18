@@ -1,5 +1,6 @@
 import type { Membership, PoolTierSummary, VisibleView } from '@bgt/core';
 import type { S14View } from '@bgt/season-s14';
+import type { SimSummary } from '@bgt/sim';
 
 /** Contrat IPC entre le processus principal et le renderer de l'overlay. */
 
@@ -63,6 +64,18 @@ export interface OverlayPayload {
   readonly timerEndsAt: number | undefined;
   /** Pool estimé à partir de ce que le joueur a vu ; absent tant que les données manquent. */
   readonly pool: PoolPayload | undefined;
+  /** Simulation du combat en cours ou à venir (plateaux affichés uniquement). */
+  readonly combatSim: CombatSimPayload | undefined;
+}
+
+export interface CombatSimPayload {
+  /** `combat` : plateaux du combat en cours ; `nextOpponent` : dernier plateau vu du prochain adversaire. */
+  readonly context: 'combat' | 'nextOpponent';
+  readonly opponentPlayerId: number;
+  readonly boardRound: number;
+  readonly summary: SimSummary;
+  /** Faux tant que les 10 000 simulations ne sont pas toutes faites (résultat qui s'affine). */
+  readonly final: boolean;
 }
 
 export interface PoolPayload {

@@ -228,6 +228,9 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
             {focus.isCurrentOpponent ? 'Adversaire' : 'Prochain adversaire'} :{' '}
             {nameOf(names, focus.heroCardId)}
           </h3>
+          {p.combatSim !== undefined && p.combatSim.opponentPlayerId === focus.playerId && (
+            <CombatSim sim={p.combatSim} />
+          )}
           {focus.lastBoard === undefined ? (
             <p className="muted">Plateau jamais vu</p>
           ) : (
@@ -241,6 +244,46 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
             </>
           )}
         </section>
+      )}
+    </div>
+  );
+}
+
+const pctOf = (x: number): string => `${Math.round(x * 100)} %`;
+
+/** Probabilités de combat (Monte Carlo sur les plateaux affichés). */
+function CombatSim({ sim }: { sim: NonNullable<OverlayPayload['combatSim']> }): React.JSX.Element {
+  const s = sim.summary;
+  const range = (d: typeof s.damageToA): string =>
+    d === undefined ? '–' : `${d.min}–${d.max} (moy. ${d.avg.toFixed(1)})`;
+  return (
+    <div className="sim" title={`${s.iterations} combats simulés${sim.final ? '' : ' (en cours)'}`}>
+      <div className="sim__bar" aria-hidden="true">
+        <span className="sim__win" style={{ width: pctOf(s.win) }} />
+        <span className="sim__tie" style={{ width: pctOf(s.tie) }} />
+        <span className="sim__loss" style={{ width: pctOf(s.loss) }} />
+      </div>
+      <p className="sim__line">
+        <b className="sim__w">V {pctOf(s.win)}</b> · É {pctOf(s.tie)} ·{' '}
+        <b className="sim__l">D {pctOf(s.loss)}</b>
+        {(s.lethalForA ?? 0) > 0 && <> · létal lui {pctOf(s.lethalForA ?? 0)}</>}
+        {(s.lethalForB ?? 0) > 0 && (
+          <>
+            {' '}
+            · <b className="sim__l">létal toi {pctOf(s.lethalForB ?? 0)}</b>
+          </>
+        )}
+      </p>
+      <p className="muted">
+        Dégâts infligés {range(s.damageToB)} · reçus {range(s.damageToA)}
+      </p>
+      {sim.context === 'nextOpponent' && (
+        <p className="muted">D’après son plateau du tour {sim.boardRound}.</p>
+      )}
+      {s.approximate && (
+        <p className="sim__approx">
+          ≈ Approximatif : {s.unsupportedCards.length} carte(s) aux effets non simulés.
+        </p>
       )}
     </div>
   );

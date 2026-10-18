@@ -238,6 +238,49 @@ small {
   color: var(--accent);
 }
 
+.sim {
+  margin: 0.35rem 0 0.45rem;
+}
+
+.sim__bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.sim__win {
+  background: #4caf7d;
+}
+
+.sim__tie {
+  background: var(--muted);
+}
+
+.sim__loss {
+  background: var(--danger);
+}
+
+.sim__line {
+  margin: 0.25rem 0 0;
+  font-size: 0.9em;
+}
+
+.sim__w {
+  color: #4caf7d;
+}
+
+.sim__l {
+  color: var(--danger);
+}
+
+.sim__approx {
+  margin: 0.15rem 0 0;
+  font-size: 0.8em;
+  color: var(--accent);
+}
+
 .season {
   list-style: none;
   margin: 0.4rem 0.3rem 0;

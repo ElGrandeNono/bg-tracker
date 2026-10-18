@@ -31,11 +31,14 @@ import {
   type OverlayPayload,
   type OverlaySettings,
   type CatalogCard,
+  type CombatSimPayload,
   type OverlayStatus,
 } from '../shared/payload.js';
 import { checkGameConfig, offerConfigFixes } from './gameSetup.js';
 import { catalogCards, poolPayload } from './poolPayload.js';
 import { currentPoolRules, currentSeason, overlayView } from './season.js';
+import { buildSimRequest, type SimRequest } from './combatSim.js';
+import { SimulationPool } from '@bgt/sim';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
 import { loadSettings, saveSettings } from './settings.js';
 
@@ -83,6 +86,52 @@ const readyContents = new Set<number>();
 /** Règles du pool de la saison en cours (seasons/s14). */
 const poolRules = currentPoolRules;
 let poolCatalog: readonly PoolCard[] = [];
+/** Simulateur de combat : worker threads, créés à la première simulation. */
+let simPool: SimulationPool | undefined;
+let simKey = '';
+let simResult: { key: string; payload: CombatSimPayload } | undefined;
+
+/** Lance (ou relance) la simulation quand les plateaux affichés changent ; l'ancienne est annulée. */
+function updateSimulation(req: SimRequest | undefined): CombatSimPayload | undefined {
+  const key = req === undefined ? '' : JSON.stringify(req);
+  if (key !== simKey) {
+    simKey = key;
+    simResult = undefined;
+    if (req !== undefined) {
+      simPool ??= new SimulationPool(new URL('./simWorker.js', import.meta.url));
+      const publish = (summary: CombatSimPayload['summary'], final: boolean): void => {
+        if (simKey !== key) return;
+        if (process.env.BGT_DEBUG === '1' && final) {
+          console.log(
+            `[bgt] simulation ${req.context} : ${summary.iterations} combats, V ${Math.round(summary.win * 100)} %`,
+          );
+        }
+        simResult = {
+          key,
+          payload: {
+            context: req.context,
+            opponentPlayerId: req.opponentPlayerId,
+            boardRound: req.boardRound,
+            summary,
+            final,
+          },
+        };
+        schedulePush();
+      };
+      void simPool
+        .run(req.input, {
+          iterations: 10_000,
+          onProgress: (s) => {
+            publish(s, false);
+          },
+        })
+        .then((s) => {
+          publish(s, true);
+        });
+    }
+  }
+  return simResult?.key === key ? simResult.payload : undefined;
+}
 let uiCatalog: readonly CatalogCard[] = [];
 let tray: Tray | undefined;
 let rendererReady = false;
@@ -179,6 +228,7 @@ function push(): void {
     settings,
     timerEndsAt: view.phase === 'recruit' ? timerEndsAt : undefined,
     pool: poolCatalog.length === 0 ? undefined : poolPayload(view, poolCatalog, poolRules),
+    combatSim: updateSimulation(buildSimRequest(view, cardDb)),
   };
   for (const w of [win, browserWin]) {
     if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {

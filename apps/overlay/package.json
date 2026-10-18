@@ -16,7 +16,8 @@
     "@bgt/core": "workspace:*",
     "@bgt/data": "workspace:*",
     "koffi": "3.3.3",
-    "@bgt/season-s14": "workspace:*"
+    "@bgt/season-s14": "workspace:*",
+    "@bgt/sim": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

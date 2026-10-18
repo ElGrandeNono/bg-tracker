@@ -35,6 +35,13 @@ await Promise.all([
     outfile: 'dist/tools/makeDemo.js',
     format: 'esm',
   }),
+  // Worker du simulateur de combat (worker_threads), chargé par SimulationPool.
+  build({
+    ...common,
+    entryPoints: ['src/main/simWorker.ts'],
+    outfile: 'dist/main/simWorker.js',
+    format: 'esm',
+  }),
 ]);
 
 if (process.argv.includes('--demo-only')) {
