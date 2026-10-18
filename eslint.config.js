@@ -7,7 +7,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
-    files: ['scripts/**/*.mjs'],
+    files: ['**/*.mjs'],
     languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
   },
   {

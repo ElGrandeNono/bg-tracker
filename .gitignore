@@ -17,3 +17,7 @@ Thumbs.db
 
 # Réglages locaux de Claude Code
 .claude/settings.local.json
+
+# Overlay : cache de cartes et instantanés de démo (générés)
+apps/overlay/.cache/
+apps/overlay/src/renderer/public/

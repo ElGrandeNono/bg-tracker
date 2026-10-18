@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "overlay-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@bgt/overlay", "exec", "vite"],
+      "port": 5199
+    }
+  ]
+}

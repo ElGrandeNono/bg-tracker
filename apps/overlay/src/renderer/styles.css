@@ -1,0 +1,325 @@
+/* Overlay BG Tracker : panneaux discrets, lisibles en une seconde, sur fond transparent. */
+
+:root {
+  color-scheme: dark;
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: calc(13px * var(--scale, 1));
+}
+
+.theme-dark {
+  --bg: rgba(14, 16, 24, 0.86);
+  --bg-strong: rgba(24, 27, 40, 0.94);
+  --fg: #eef0f6;
+  --muted: #9aa3b8;
+  --line: rgba(255, 255, 255, 0.09);
+  --accent: #f5b42a;
+  --next: #4fb3ff;
+  --danger: #ff6b6b;
+  --gold: #ffd166;
+  --atk: #ffcf5c;
+  --hp: #ff8a8a;
+  --local: rgba(245, 180, 42, 0.16);
+}
+
+.theme-light {
+  --bg: rgba(250, 250, 252, 0.9);
+  --bg-strong: rgba(255, 255, 255, 0.96);
+  --fg: #1b1e28;
+  --muted: #5d6475;
+  --line: rgba(0, 0, 0, 0.1);
+  --accent: #b5780a;
+  --next: #0a6fc2;
+  --danger: #c62828;
+  --gold: #8a6200;
+  --atk: #9a6a00;
+  --hp: #b3261e;
+  --local: rgba(181, 120, 10, 0.14);
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+.overlay {
+  position: relative;
+  height: 100%;
+  color: var(--fg);
+  opacity: var(--opacity, 1);
+}
+
+/* Fond de démonstration (mode autonome / captures) : jamais affiché en jeu. */
+.overlay--backdrop {
+  background: radial-gradient(ellipse at 50% 40%, #3b2f22 0%, #1d1812 55%, #0c0a08 100%);
+}
+
+.panel {
+  position: absolute;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+.panel--unlocked {
+  cursor: grab;
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+b {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+small {
+  color: var(--muted);
+  font-size: 0.82em;
+  margin-left: 0.25em;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0.2em 0 0.4em;
+  font-size: 0.85em;
+}
+
+/* ---- barre du haut */
+
+.bar {
+  display: flex;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
+  white-space: nowrap;
+}
+
+.bar__item {
+  padding: 0.15rem 0.55rem;
+  border-right: 1px solid var(--line);
+}
+
+.bar__item:last-child {
+  border-right: none;
+}
+
+.bar__item b {
+  font-size: 1.15em;
+}
+
+.bar__round small {
+  display: inline;
+}
+
+.bar__upgrade {
+  color: var(--accent);
+}
+
+.bar__gold b {
+  color: var(--gold);
+}
+
+.bar__timer--low b {
+  color: var(--danger);
+}
+
+/* ---- lobby */
+
+.lobby {
+  width: 19.5rem;
+  padding: 0.45rem;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1.3rem 1fr 1.4rem 2.2rem 1.9rem 1.1rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.3rem;
+  border-radius: 6px;
+}
+
+.row + .row {
+  margin-top: 1px;
+}
+
+.row--local {
+  background: var(--local);
+}
+
+.row--next {
+  box-shadow: inset 3px 0 0 var(--next);
+}
+
+.row--current {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.row--dead {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.row__place {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.row__hero {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__tier {
+  text-align: center;
+  font-weight: 650;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.row__hp {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--hp);
+}
+
+.row__triples {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.row__mark {
+  color: var(--next);
+  text-align: center;
+}
+
+.row--current .row__mark {
+  color: var(--danger);
+}
+
+.tribes {
+  margin: 0.45rem 0.3rem 0;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.88em;
+  color: var(--muted);
+}
+
+/* ---- plateau du prochain adversaire */
+
+.board {
+  margin-top: 0.45rem;
+  padding: 0.4rem 0.35rem 0.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.board h3 {
+  margin: 0;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: var(--next);
+}
+
+.minions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.minion {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.12rem 0.35rem;
+  background: var(--bg-strong);
+  border-radius: 5px;
+  font-size: 0.92em;
+}
+
+.minion--golden {
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+.minion__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minion__stats .atk {
+  color: var(--atk);
+}
+
+.minion__stats .hp {
+  color: var(--hp);
+}
+
+.minion__kw {
+  display: flex;
+  gap: 2px;
+}
+
+.minion__kw abbr {
+  text-decoration: none;
+  font-size: 0.75em;
+  font-weight: 700;
+  padding: 0 0.25em;
+  border-radius: 3px;
+  background: var(--line);
+  color: var(--fg);
+}
+
+.final {
+  padding: 0.5rem 0.75rem 0;
+  font-size: 1.05em;
+}
+
+.final b {
+  color: var(--accent);
+  font-size: 1.4em;
+}
+
+/* ---- messages */
+
+.notices {
+  position: absolute;
+  left: 50%;
+  bottom: 1.2rem;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  max-width: 60%;
+}
+
+.notices li {
+  background: var(--bg-strong);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.9em;
+}

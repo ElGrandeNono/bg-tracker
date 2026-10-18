@@ -10,7 +10,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && pnpm --filter @bgt/overlay build",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
@@ -18,7 +18,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "tsc -b --clean",
-    "replay": "tsc -b && node packages/core/dist/cli/replay.js"
+    "replay": "tsc -b && node packages/core/dist/cli/replay.js",
+    "overlay": "pnpm --filter @bgt/overlay build && pnpm --filter @bgt/overlay start",
+    "overlay:replay": "pnpm --filter @bgt/overlay build && pnpm --filter @bgt/overlay exec electron . --replay",
+    "overlay:demo": "pnpm --filter @bgt/overlay demo"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

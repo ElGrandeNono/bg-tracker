@@ -2,3 +2,9 @@ packages:
   - 'packages/*'
   - 'apps/*'
   - 'seasons/*'
+
+# Scripts d'installation autorisés (pnpm 10 les bloque par défaut) : téléchargement du binaire
+# Electron et du binaire natif d'esbuild.
+onlyBuiltDependencies:
+  - electron
+  - esbuild
