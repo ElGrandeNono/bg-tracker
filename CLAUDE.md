@@ -1,6 +1,6 @@
 # BG Tracker — guide pour Claude
 
-Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M2 terminé → M3** (pool tracker, tribus, navigateur de serviteurs). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
+Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M3 terminé → M4** (mécaniques saisonnières : trinkets, Dark Gifts, Activate, compteurs). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
 
 ## Commandes
 
@@ -50,6 +50,8 @@ acceptance.test.ts    tests d'acceptation sur les deux fixtures réelles (vérit
 
 `GameState` contient des infos cachées : seule `visibility/view.ts` (`buildVisibleView`, liste blanche) alimente l'UI, test `visibility/view.test.ts`.
 
+Pool : `core/src/pool/pool.ts` (calcul pur, hypergéométrique), règles dans `seasons/s14/src/poolRules.ts` (sources + `verified`), catalogue `data/src/poolCatalog.ts` (pool solo HearthstoneJSON, hors Duos), cartes vues = `VisibleView.poolSightings`. Navigateur de serviteurs = même renderer, route `#browser`, fenêtre séparée. Voir `docs/adding-a-season.md`.
+
 `packages/data` : `loadCardDb` (HearthstoneJSON `/v1/<build>/<locale>/cards.json`, cache par build, repli `latest` puis cache périmé). `apps/overlay` : `src/main` (pipeline, `hsWindow.ts` user32 via koffi, réglages, config du jeu), `src/preload`, `src/renderer` (React), `src/shared/payload.ts` (contrat IPC), `build.mjs` (esbuild) + Vite. Détails : `docs/architecture.md`.
 
 ## Conventions
@@ -87,7 +89,7 @@ acceptance.test.ts    tests d'acceptation sur les deux fixtures réelles (vérit
 
 ## Jalons
 
-M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play ✅ · M3 pool + tribus + navigateur · M4 mécaniques saisonnières · M5 simulateur · M6 SQLite + stats + replay de partie · M7 personnalisation, streamer, i18n, packaging · M8 docs.
+M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play ✅ · M3 pool + tribus + navigateur ✅ · M4 mécaniques saisonnières · M5 simulateur · M6 SQLite + stats + replay de partie · M7 personnalisation, streamer, i18n, packaging · M8 docs.
 
 Critère M1 : sur les deux fixtures, chronologie correcte (tours, combats et adversaires, tiers, places) ; partie complète → `TB_BaconShop_HERO_55`, place 3, tribus Dragon/Démons/Murloc/Mécas/Élémentaires ; log tronqué → avertissement sans crash.
 

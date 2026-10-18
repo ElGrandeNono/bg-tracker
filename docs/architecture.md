@@ -27,9 +27,9 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
 | Paquet          | Rôle                                                                                                                                                           | Dépendances                  |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
 | `packages/core` | ligne → événements Power → état des entités → modèle BG → vue filtrée ; LogWatcher ; replay ; vérification de `log.config` / `client.config` (fonctions pures) | `fflate` (lecture `.zip`)    |
-| `packages/data` | données de cartes HearthstoneJSON, cache par build, repli hors ligne                                                                                           | aucune                       |
+| `packages/data` | données de cartes HearthstoneJSON, cache par build, repli hors ligne ; catalogue du pool solo                                                                  | `@bgt/core`                  |
 | `packages/sim`  | simulateur de combat (M5)                                                                                                                                      | —                            |
-| `seasons/s14`   | mécaniques de la saison 14 (M4) ; rien de saisonnier dans `core`                                                                                               | —                            |
+| `seasons/s14`   | règles de la saison 14 (pool : copies, emplacements, tribus hors rotation) ; mécaniques en M4 ; rien de saisonnier dans `core`                                 | `@bgt/core`                  |
 | `apps/overlay`  | Electron : processus principal (pipeline, suivi de fenêtre, raccourcis, réglages), preload, renderer React                                                     | `electron`, `koffi`, `react` |
 
 ## Choix et invariants
@@ -39,6 +39,8 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
 - **Tolérance** : une ligne inconnue est comptée dans `parser.diagnostics` puis ignorée ; un tag inconnu est gardé tel quel ; une troncature ne remet jamais l'état à zéro.
 - **Fair play** : `GameState` contient des informations cachées. Seule `buildVisibleView` (liste blanche) produit ce que voit l'UI. Le test `visibility/view.test.ts` rejoue les trois fixtures réelles et vérifie, avec un oracle indépendant, que toute carte de la vue a été montrée au joueur ; aucun identifiant d'entité ne sort.
 - **Fair play temporel** : `GameState` connaît l'issue d'un combat 8 à 48 s avant que le client ne l'anime. L'UI lit `pipeline.displayed`, un instantané libéré au rythme des repères affichés par `PowerTaskList` (qui ne fournit aucune donnée). Voir [log-format.md](log-format.md#décalage-daffichage-des-combats-f2-f4--enjeu-fair-play).
+- **Pool de serviteurs** : la vue filtrée liste les serviteurs VUS hors du pool (`poolSightings` : main, plateau, boutique, plateaux adverses) ; `computePool` (pur) applique les règles de saison au catalogue ; probabilités par loi hypergéométrique. Tout est une estimation : le tracker ne voit ni les boutiques ni les mains adverses.
+- **Navigateur de serviteurs** : fenêtre classique (Ctrl+Maj+B), même renderer (route `#browser`), même pont IPC ; catalogue envoyé une fois par build (`bgt:catalog`).
 - **Mode de jeu** : seul le solo (`GT_BATTLEGROUNDS`) est pris en charge ; Duos et modes inconnus n'affichent qu'un avertissement (jamais d'info fausse sans avertissement).
 - **Issue de partie** : `finished` (élimination ou `STATE=COMPLETE`) ou `interrupted` (fin du flux ou nouvelle partie sans événement de fin : abandon, troncature). Jamais de place finale inventée.
 

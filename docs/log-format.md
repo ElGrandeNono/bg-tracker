@@ -102,6 +102,10 @@ Les héros des 7 autres joueurs sont visibles en jeu (classement) : les afficher
 - **Minuteur** : `TIMEOUT` sur le joueur local, posé juste avant le recrutement, donne sa durée en secondes (40 s → recrutement mesuré de 41 s ; 55 s → 56 s). L'overlay décompte à partir de la réception du `TURN` impair : c'est une estimation.
 - **Coût d'amélioration** : `COST` du bouton `TB_BaconShopTechUp0N_Button` (`CARDTYPE=GAME_MODE_BUTTON`, `TECH_LEVEL` = niveau visé) contrôlé par le joueur local, en `PLAY`. Un nouveau bouton est créé à chaque tour ; on prend le plus récent.
 
+### Boutique (F2, F4)
+
+La boutique de Bob est l'ensemble des serviteurs contrôlés par le dummy, en `PLAY`, pendant le recrutement. Sa taille maximale par tour suit exactement 3 / 4 / 4 / 5 / 5 / 6 emplacements selon le niveau de taverne (1 à 6), ce qui confirme les valeurs du wiki (test `seasons/s14/src/poolRules.test.ts`).
+
 ### Plateaux de combat (F2)
 
 Après `BACON_CURRENT_COMBAT_PLAYER_ID`, le jeu crée par `FULL_ENTITY` les copies des deux plateaux (`CARDTYPE=MINION`, `ZONE=PLAY`, `CONTROLLER` = joueur local ou dummy), puis les blocs `BLOCK_START BlockType=ATTACK`. Le plateau « vu » d'un adversaire est donc l'ensemble des serviteurs du dummy entrés en `PLAY` une fois l'adversaire connu, figé au premier bloc `ATTACK` (les effets de Début du combat déjà résolus y sont inclus). Stats : `ATK`, `HEALTH - DAMAGE` ; doré : `PREMIUM=1` ou cardId en `_G` ; mots-clés : `TAUNT`, `DIVINE_SHIELD`, `REBORN`, `VENOMOUS`, `WINDFURY`, `DEATHRATTLE`, `STEALTH` (tous vus nommés dans F2).

@@ -4,7 +4,7 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 > **Non affilié à Blizzard Entertainment.** Hearthstone et Battlegrounds sont des marques de Blizzard Entertainment, Inc. Aucun asset Blizzard n'est inclus dans ce dépôt ni dans l'installeur : les données de cartes et les images sont téléchargées au runtime depuis [HearthstoneJSON](https://hearthstonejson.com/) et mises en cache localement.
 
-État : **M2**. Overlay minimal en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites. Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
+État : **M3**. Overlay en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites, **pool de serviteurs estimé** et **navigateur de serviteurs** (Ctrl+Maj+B). Rien n'est affiché avant que le jeu ne l'ait montré (les combats sont connus du log avant leur animation). Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
 
 ## Principes
 
@@ -46,8 +46,11 @@ pnpm overlay
 | Ctrl+Maj+U | déverrouiller pour déplacer les panneaux (la souris est alors capturée), puis reverrouiller |
 | Ctrl+Maj+O | opacité                                                                                     |
 | Ctrl+Maj+C | mode compact                                                                                |
+| Ctrl+Maj+B | navigateur de serviteurs (recherche, tribus du lobby, exemplaires restants, probabilités)   |
 
 Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fichier.log|.gz|.zip> --speed 10`.
+
+**Pool de serviteurs** : les exemplaires restants et les probabilités sont des **estimations** fondées uniquement sur ce que vous voyez (votre main, votre plateau, la boutique, les plateaux adverses vus en combat). Le pool réel est plus petit. Les règles (copies par niveau, emplacements de boutique) viennent du wiki et sont vérifiées sur des logs réels quand c'est possible : voir `seasons/s14/src/poolRules.ts`.
 
 **Réseau** : seul accès, le téléchargement des données de cartes depuis HearthstoneJSON (mis en cache par version du jeu). Aucune télémétrie.
 
