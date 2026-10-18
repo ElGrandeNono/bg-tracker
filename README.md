@@ -4,7 +4,7 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 > **Non affilié à Blizzard Entertainment.** Hearthstone et Battlegrounds sont des marques de Blizzard Entertainment, Inc. Aucun asset Blizzard n'est inclus dans ce dépôt ni dans l'installeur : les données de cartes et les images sont téléchargées au runtime depuis [HearthstoneJSON](https://hearthstonejson.com/) et mises en cache localement.
 
-État : **M0 (scaffold)**. Rien n'est encore utilisable en jeu.
+État : **M1**. Le parseur rejoue un `Power.log` en console (`pnpm replay <fichier>`) ; pas encore d'overlay. Le format du log est documenté dans [docs/log-format.md](docs/log-format.md).
 
 ## Principes
 

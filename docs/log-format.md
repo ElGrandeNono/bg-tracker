@@ -1,0 +1,123 @@
+# Format de `Power.log` (Battlegrounds)
+
+Ce document consigne ce que le parseur sait du format, **et d'où il le sait**. Sauf mention contraire, chaque point a été observé dans les deux fixtures réelles anonymisées (`fixtures/README.md`) :
+
+- **F1** : `bg-solo-2026-09-21-tronque` (build 251952, solo, tronqué au tour 13) ;
+- **F2** : `bg-solo-2026-10-18-complete` (build 254477 = patch 37.0, solo, partie complète de 27 min).
+
+Références de format : dépôt [Hearthstone-Deck-Tracker](https://github.com/HearthSim/Hearthstone-Deck-Tracker) et bibliothèque [python-hslog](https://github.com/HearthSim/python-hslog) (HearthSim, licence MIT), utilisées comme documentation. Aucun code n'en est repris.
+
+Ce qui n'est **pas** dans les fixtures (Duos, quêtes, anomalies, reconnexion, victoire en 1re place, abandon) n'est pas implémenté : voir « Inconnues » en bas de page.
+
+## Lignes
+
+```
+D 06:11:54.5321202 GameState.DebugPrintPower() -     TAG_CHANGE Entity=4 tag=STATE value=RUNNING
+```
+
+- UTF-8, fins de ligne CRLF. Des noms non ASCII (cyrillique) apparaissent.
+- Niveau (`D`, `W`), heure locale `hh:mm:ss.fffffff` **sans date** : la date se lit dans le nom du dossier `Logs/Hearthstone_AAAA_MM_JJ_hh_mm_ss/` (`sessionDate()`). Le replay traite un recul de plus de 12 h comme un passage à minuit.
+- `<Source>.<Méthode>() - ` puis le message ; l'indentation du message reflète l'imbrication des blocs.
+- Lignes hors format : `Truncating log, which has reached the size limit of 10000KB` (F1, ligne 75 640), lignes de `=`. Le parseur les reçoit en `kind: 'raw'`.
+
+Code : `packages/core/src/log/line.ts`.
+
+## Source retenue : `GameState.DebugPrintPower()`
+
+Chaque événement est journalisé deux fois (F2 : ~170 800 lignes `GameState.DebugPrintPower`, ~171 100 lignes `PowerTaskList.DebugPrintPower`). `GameState` écrit à la réception des paquets ; `PowerTaskList` rejoue les mêmes données au rythme des animations, avec du retard. Le parseur ne lit **que** `GameState.DebugPrintPower()` (et `GameState.DebugPrintGame()` pour l'en-tête) : plus tôt, et jamais compté deux fois.
+
+Autres sources présentes, non exploitées en M1 : `GameState.DebugPrintOptions` / `SendOption` (actions du joueur), `DebugPrintEntityChoices` / `DebugPrintEntitiesChosen` (choix de héros, découvertes, Dark Gifts), `PowerProcessor.*`, `ChoiceCardMgr.*`.
+
+## Commandes
+
+| Commande                                                               | Forme observée                                                                                                                               | Événement                            |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `CREATE_GAME`                                                          | suivi de `GameEntity EntityID=n` et de deux `Player EntityID=n PlayerID=p GameAccountId=[hi=… lo=…]`, chacun suivi de lignes `tag=X value=Y` | `createGame`, `gameEntity`, `player` |
+| `FULL_ENTITY - Creating ID=n CardID=c`                                 | suivi de lignes `tag=` ; `CardID=` vide si l'entité est cachée                                                                               | `fullEntity`                         |
+| `SHOW_ENTITY - Updating Entity=<réf> CardID=c`                         | révèle une entité, suivi de lignes `tag=`                                                                                                    | `showEntity`                         |
+| `CHANGE_ENTITY - Updating Entity=<réf> CardID=c`                       | change la carte (ex. passage en doré `BG31_177` → `BG31_177_G`)                                                                              | `changeEntity`                       |
+| `HIDE_ENTITY - Entity=<réf> tag=ZONE value=Z`                          |                                                                                                                                              | `hideEntity`                         |
+| `TAG_CHANGE Entity=<réf> tag=T value=V`                                |                                                                                                                                              | `tagChange`                          |
+| `BLOCK_START BlockType=B Entity=<réf> …` / `BLOCK_END`                 | **non équilibrés** (F2 : 4 687 starts, 4 559 ends) : on ne s'appuie pas sur l'imbrication                                                    | `blockStart` / `blockEnd`            |
+| `META_DATA`, `Info[i] =`, `Source =`, `Targets`, `SUB_SPELL_START/END` | métadonnées d'historique et effets visuels                                                                                                   | ignorées                             |
+
+Une ligne `GameState.DebugPrintPower` inconnue est comptée dans `parser.diagnostics` (avec des exemples) puis ignorée, jamais fatale. F1 et F2 : 0 ligne non reconnue.
+
+### Références d'entité (`Entity=…`)
+
+Trois formes :
+
+1. un entier : `Entity=27` ;
+2. un crochet : `[entityName=Tchak Coupebeurre id=120 zone=HAND zonePos=4 cardId=BG21_HERO_010 player=2]` — le nom peut contenir des espaces et même des crochets (`UNKNOWN ENTITY [cardType=INVALID]`) ; seul `id=n` est lu ;
+3. un nom : `GameEntity`, ou un nom de joueur.
+
+**Noms de joueurs.** Il n'y a que deux entités `Player` en BG solo : le joueur local et un emplacement « dummy » (`BACON_DUMMY_PLAYER=1`, `GameAccountId=[hi=0 lo=0]`). L'en-tête donne un nom à chacun (`PlayerName=Игрок1` pour le dummy dans F1 et F2), mais dans les `TAG_CHANGE` le dummy apparaît sous **d'autres** noms : `Bob`, `Bob le barman` en recrutement, et le nom de l'adversaire pendant les combats (`Adversaire2`…). Règle : nom d'en-tête → ce joueur ; tout autre nom → le dummy (`resolveRef`).
+
+### Valeurs de tags
+
+- Le jeu écrit le nom du tag s'il le connaît (`PLAYER_TECH_LEVEL`), sinon son identifiant (`tag=3085`). F2 : 257 tags nommés, 205 numériques. Les deux sont gardés tels quels, en chaîne ; un tag inconnu n'est jamais une erreur.
+- Valeur entière → `number`, sinon nom d'énumération (`ZONE value=PLAY`) → `string`.
+- Une table ID → nom versionnée (issue de `python-hearthstone/enums.py`) est prévue dans `packages/data` pour normaliser les tags numériques ; M1 n'en a pas besoin.
+
+## Battlegrounds
+
+### En-tête (`DebugPrintGame`)
+
+`BuildNumber` (251952 puis 254477), `GameType=GT_BATTLEGROUNDS`, `FormatType=FT_WILD`, `ScenarioID=3459`, puis `PlayerID=p, PlayerName=…` pour les deux joueurs. Les `PlayerID` changent d'une partie à l'autre (F1 : 8 et 16 ; F2 : 2 et 10) : jamais codés en dur.
+
+**Joueur local** : l'entité `Player` dont le `GameAccountId` est non nul.
+
+### Cycle de partie
+
+- `STEP=BEGIN_MULLIGAN` sur GameEntity : choix du héros (4 héros proposés dans F2, via `DebugPrintEntityChoices` `ChoiceType=MULLIGAN`).
+- `TURN` sur GameEntity : **impair = recrutement, pair = combat**. Tour de recrutement n = ⌈TURN / 2⌉. F2 : TURN 1 → 28, soit 14 tours. Le `TURN` des entités `Player` compte les tours de chaque emplacement (le local aux tours impairs de GameEntity, le dummy aux pairs).
+- `BACON_IN_COMBAT_PHASE` (0/1) sur GameEntity : début et fin de combat. Le `TURN` du recrutement suivant est posé **avant** `BACON_IN_COMBAT_PHASE=0`.
+- `STATE=COMPLETE` sur GameEntity : fin de la partie (pour le client local).
+
+### Joueurs du lobby
+
+Chaque joueur est représenté par une entité `CARDTYPE=HERO` portant `PLAYER_ID` (id de classement) et `PLAYER_LEADERBOARD_PLACE`, contrôlée par le dummy (sauf celle du joueur local, désignée par `HERO_ENTITY` sur son entité `Player`). C'est elle qui porte `PLAYER_TECH_LEVEL`, `PLAYER_TRIPLES`, `HEALTH`, `DAMAGE`, `ARMOR`. Des **copies** de héros sont créées pour chaque combat (même `PLAYER_ID`) : elles sont ignorées.
+
+L'id de classement du joueur local est égal à son `PlayerID` (F1 : 8 ; F2 : 2).
+
+Les héros des 7 autres joueurs sont visibles en jeu (classement) : les afficher respecte le fair play.
+
+### Adversaires
+
+- `BACON_CURRENT_COMBAT_PLAYER_ID` est posé sur le joueur local (valeur = **son propre id**) et sur le dummy (valeur = **id de l'adversaire**), puis remis à 0 en fin de combat. Les « valeurs 8 et 0 qui s'intercalent » de F1 sont donc l'id du joueur local et la fin de combat.
+  - F1 : adversaires 4, 7, 3, 2, 5, 6 sur 6 combats ; F2 : 14 combats, tous avec un id.
+- Le **nom** de l'adversaire est celui que porte le dummy pendant le combat. Le renommage est décalé : il peut précéder le tag d'id (F2, combat 1), le suivre, n'arriver qu'à la fin du combat (F2, combat 13), voire ne jamais arriver (F1, combat 6). Règle : le premier nom du dummy jamais vu hors combat est celui de l'adversaire, sauf s'il est déjà attribué à un autre joueur. Le combat est annoncé dès que l'id est connu ; le nom complète l'enregistrement. Sur F1 et F2, chaque nom correspond toujours au même héros.
+- `NEXT_OPPONENT_PLAYER_ID` sur le joueur local (et son héros) : prochain adversaire, information affichée en jeu.
+
+### Fin de partie et place
+
+- Élimination du joueur local : son héros passe en `ZONE=GRAVEYARD` (gros `DAMAGE`), puis `PLAYSTATE=LOST` sur le joueur local et `PLAYSTATE=WON` sur le dummy (alors nommé comme l'adversaire du dernier combat).
+- **`PLAYSTATE=LOST` est reçu avec une 3e place** (F2) : il ne dit rien du top 4.
+- Place finale = dernière `PLAYER_LEADERBOARD_PLACE` du héros local à l'élimination. Elle varie souvent pendant la partie (5, 6, 5, 6 en quelques secondes) : jamais présentée comme finale avant l'élimination. F2 : 3, conforme à la réalité.
+- Le log continue ~40 s après la mort du héros et ne couvre pas la fin de partie des autres joueurs.
+
+### Tribus du lobby
+
+Aucune annonce au début de la partie. `BACON_SUBSET_<TRIBU>` apparaît sur les serviteurs (et sur certains héros) au fil de la partie. Le tracker compte les **cartes distinctes** (version dorée `_G` ramenée à la carte de base) par tribu, sur les serviteurs visibles (zones `PLAY` et `HAND`). F2 en fin de partie : DRAGON 23, MECH 21, MURLOC 19, DEMON 17, ELEMENTALS 17 ; puis NAGA 2, PIRATE 1, QUILLBOAR 1, UNDEAD 1 (cartes arrivées par effets). Une tribu est « identifiée » à partir de 8 cartes distinctes, parmi les 5 premières ; l'UI affiche « k/5 tribus identifiées ».
+
+Le nombre de tribus par lobby (5) et le seuil sont des paramètres (`defaultTribeOptions`), à déplacer dans les données de saison.
+
+### Mécaniques de saison vues (non exploitées en M1)
+
+`BACON_TRINKETS_ACTIVE`, `BACON_DARK_GIFTS_ACTIVE` (GameEntity, à la création), `BACON_GLOBAL_OLD_GOD_DBID` (F2), entités `CARDTYPE=BATTLEGROUND_TRINKET` (`BG30_Trinket_1st`/`2nd`), `BACON_TURNS_LEFT_TO_DISCOVER_TRINKET`, `BG36_MidGameEffect_*` (source des choix Dark Gift). Piège : `BACON_DUOS_PUNISH_LEAVERS=1` est présent en **solo**.
+
+### Héros
+
+CardIds `TB_BaconShop_HERO_<n>`, `BG<nn>_HERO_<nnn>`, et skins (`BG20_HERO_202_SKIN_A`, `TB_BaconShop_HERO_50_SKIN_D4`). Placeholder avant le choix : `TB_BaconShop_HERO_PH`. La normalisation skin → héros de base passera par les données HearthstoneJSON (M3), pas par une règle sur le nom.
+
+## Troncature
+
+Sans `client.config` → `[Log] FileSizeLimit.Int=-1`, le jeu s'arrête vers 10 000 Ko (F1 : tour 13, ~9 min) et écrit `Truncating log, …`. Le parseur émet `truncated` ; l'état n'est **jamais** remis à zéro ; l'UI affiche « log tronqué, état possiblement incomplet ». Le LogWatcher signale aussi un fichier qui raccourcit (`shrunk`). Ce que le jeu écrit après une troncature n'a pas été observé : rien n'est présumé.
+
+## Inconnues (demander un log réel avant d'implémenter)
+
+- Mode Duos (critère de détection fiable, partenaire).
+- Partie courte / abandon (`PLAYSTATE=CONCEDED` ?), victoire en 1re place.
+- Reconnexion en cours de partie.
+- Quêtes, anomalies.
+- Aberrations / Divinités (patch 36.6.1) : aucun tag nommé dans F2 ; `BACON_GLOBAL_OLD_GOD_DBID` est un candidat.
