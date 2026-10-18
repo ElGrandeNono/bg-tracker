@@ -1,9 +1,20 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/core/tsconfig.build.json" },
-    { "path": "packages/data/tsconfig.build.json" },
-    { "path": "packages/sim/tsconfig.build.json" },
-    { "path": "seasons/s14/tsconfig.build.json" }
+    {
+      "path": "packages/core/tsconfig.build.json"
+    },
+    {
+      "path": "packages/data/tsconfig.build.json"
+    },
+    {
+      "path": "packages/sim/tsconfig.build.json"
+    },
+    {
+      "path": "seasons/s14/tsconfig.build.json"
+    },
+    {
+      "path": "packages/history/tsconfig.build.json"
+    }
   ]
 }

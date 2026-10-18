@@ -91,6 +91,12 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/history:
+    dependencies:
+      '@bgt/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/sim:
     devDependencies:
       '@bgt/core':

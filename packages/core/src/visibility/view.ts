@@ -99,6 +99,12 @@ export type ViewWarning = 'truncated' | 'interrupted' | 'abandoned';
 
 export interface VisibleView<V extends SeasonViewBase = SeasonViewBase> {
   readonly schema: typeof VIEW_SCHEMA_VERSION;
+  /** Numéro de la partie dans le flux de log (change à chaque `CREATE_GAME`). */
+  readonly gameIndex: number;
+  /** Heure de début de la partie (ms depuis minuit, heure du log), si connue. */
+  readonly gameStartMs: number | undefined;
+  /** Heure de la dernière entrée de chronologie (fin, élimination, interruption…). */
+  readonly lastTimelineMs: number | undefined;
   readonly isBattlegrounds: boolean;
   /** Seul `solo` est pris en charge ; l'UI n'affiche qu'un avertissement sinon. */
   readonly mode: GameMode;
@@ -287,6 +293,9 @@ export function buildVisibleView<V extends SeasonViewBase = SeasonViewBase>(
 
   return {
     schema: VIEW_SCHEMA_VERSION,
+    gameIndex: bg.gameIndex,
+    gameStartMs: bg.timeline.find((e) => e.kind === 'gameStart')?.timeMs,
+    lastTimelineMs: bg.timeline.at(-1)?.timeMs,
     isBattlegrounds: bg.isBattlegrounds,
     mode: bg.mode,
     build: bg.build,
