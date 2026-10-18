@@ -24,13 +24,14 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
 
 ## Paquets
 
-| Paquet          | Rôle                                                                                                                                                           | Dépendances                                |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `packages/core` | ligne → événements Power → état des entités → modèle BG → vue filtrée ; LogWatcher ; replay ; vérification de `log.config` / `client.config` (fonctions pures) | `fflate` (lecture `.zip`)                  |
-| `packages/data` | données de cartes HearthstoneJSON, cache par build, repli hors ligne ; catalogue du pool solo                                                                  | `@bgt/core`                                |
-| `packages/sim`  | simulateur de combat Monte Carlo : moteur, registre d'effets par carte, worker threads                                                                         | aucune (`@bgt/core` en dev pour les tests) |
-| `seasons/s14`   | règles de la saison 14 (pool : copies, emplacements, tribus hors rotation) ; mécaniques en M4 ; rien de saisonnier dans `core`                                 | `@bgt/core`                                |
-| `apps/overlay`  | Electron : processus principal (pipeline, suivi de fenêtre, raccourcis, réglages), preload, renderer React                                                     | `electron`, `koffi`, `react`               |
+| Paquet             | Rôle                                                                                                                                                           | Dépendances                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `packages/core`    | ligne → événements Power → état des entités → modèle BG → vue filtrée ; LogWatcher ; replay ; vérification de `log.config` / `client.config` (fonctions pures) | `fflate` (lecture `.zip`)                  |
+| `packages/data`    | données de cartes HearthstoneJSON, cache par build, repli hors ligne ; catalogue du pool solo                                                                  | `@bgt/core`                                |
+| `packages/sim`     | simulateur de combat Monte Carlo : moteur, registre d'effets par carte, worker threads                                                                         | aucune (`@bgt/core` en dev pour les tests) |
+| `packages/history` | historique local SQLite (`node:sqlite`), enregistreur de parties depuis la vue filtrée, statistiques, import des anciens logs                                  | `@bgt/core`                                |
+| `seasons/s14`      | règles de la saison 14 (pool : copies, emplacements, tribus hors rotation) ; mécaniques en M4 ; rien de saisonnier dans `core`                                 | `@bgt/core`                                |
+| `apps/overlay`     | Electron : processus principal (pipeline, suivi de fenêtre, raccourcis, réglages), preload, renderer React                                                     | `electron`, `koffi`, `react`               |
 
 ## Choix et invariants
 
@@ -42,6 +43,7 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
 - **Pool de serviteurs** : la vue filtrée liste les serviteurs VUS hors du pool (`poolSightings` : main, plateau, boutique, plateaux adverses) ; `computePool` (pur) applique les règles de saison au catalogue ; probabilités par loi hypergéométrique. Tout est une estimation : le tracker ne voit ni les boutiques ni les mains adverses.
 - **Navigateur de serviteurs** : fenêtre classique (Ctrl+Maj+B), même renderer (route `#browser`), même pont IPC ; catalogue envoyé une fois par build (`bgt:catalog`).
 - **Simulateur** : entrée construite depuis la vue filtrée (plateaux affichés : combat en cours, ou dernier plateau vu du prochain adversaire) ; 10 000 combats en worker threads, résultats publiés par tranches, relancé seulement quand les plateaux changent. Voir [simulator-coverage.md](simulator-coverage.md).
+- **Historique** : `GameRecorder` observe les vues affichées (donc filtrées) et livre un `GameRecord` (héros, place, issue, tribus, durée, replay par tour des plateaux vus) à la fin de la partie ; `HistoryStore` (SQLite via `node:sqlite`, sans module natif) dédoublonne par clé build + date + héros et complète une partie interrompue sans écraser les saisies du joueur. Les statistiques excluent les parties abandonnées ou interrompues. Tableau de bord : fenêtre `#dashboard`.
 - **Mode de jeu** : seul le solo (`GT_BATTLEGROUNDS`) est pris en charge ; Duos et modes inconnus n'affichent qu'un avertissement (jamais d'info fausse sans avertissement).
 - **Issue de partie** : `finished` (élimination ou `STATE=COMPLETE`) ou `interrupted` (fin du flux ou nouvelle partie sans événement de fin : abandon, troncature). Jamais de place finale inventée.
 

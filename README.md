@@ -4,7 +4,7 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 > **Non affilié à Blizzard Entertainment.** Hearthstone et Battlegrounds sont des marques de Blizzard Entertainment, Inc. Aucun asset Blizzard n'est inclus dans ce dépôt ni dans l'installeur : les données de cartes et les images sont téléchargées au runtime depuis [HearthstoneJSON](https://hearthstonejson.com/) et mises en cache localement.
 
-État : **M5**. Overlay en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites, mécaniques de la saison 14 (**bibelots**, **Sombres dons**, **Activations**, bonus des sorts de taverne, Divinité), **simulateur de combat** (victoire / égalité / défaite, létal, dégâts ; marqué « approximatif » quand une carte n'est pas simulée, voir [docs/simulator-coverage.md](docs/simulator-coverage.md)), **pool de serviteurs estimé** et **navigateur de serviteurs** (Ctrl+Maj+B). Rien n'est affiché avant que le jeu ne l'ait montré (les combats sont connus du log avant leur animation). Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
+État : **M6**. Overlay en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites, mécaniques de la saison 14 (**bibelots**, **Sombres dons**, **Activations**, bonus des sorts de taverne, Divinité), **simulateur de combat** (victoire / égalité / défaite, létal, dégâts ; marqué « approximatif » quand une carte n'est pas simulée, voir [docs/simulator-coverage.md](docs/simulator-coverage.md)), **pool de serviteurs estimé** et **navigateur de serviteurs** (Ctrl+Maj+B). Rien n'est affiché avant que le jeu ne l'ait montré (les combats sont connus du log avant leur animation). Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
 
 ## Principes
 
@@ -40,17 +40,20 @@ Le jeu doit être en mode **fenêtré** ou **plein écran fenêtré** : un overl
 pnpm overlay
 ```
 
-| Raccourci  | Action                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| Ctrl+Maj+H | afficher / masquer                                                                          |
-| Ctrl+Maj+U | déverrouiller pour déplacer les panneaux (la souris est alors capturée), puis reverrouiller |
-| Ctrl+Maj+O | opacité                                                                                     |
-| Ctrl+Maj+C | mode compact                                                                                |
-| Ctrl+Maj+B | navigateur de serviteurs (recherche, tribus du lobby, exemplaires restants, probabilités)   |
+| Raccourci  | Action                                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| Ctrl+Maj+H | afficher / masquer                                                                                                    |
+| Ctrl+Maj+U | déverrouiller pour déplacer les panneaux (la souris est alors capturée), puis reverrouiller                           |
+| Ctrl+Maj+O | opacité                                                                                                               |
+| Ctrl+Maj+C | mode compact                                                                                                          |
+| Ctrl+Maj+D | historique : statistiques, parties (MMR, notes, tags), replay tour par tour, export CSV/JSON, import des anciens logs |
+| Ctrl+Maj+B | navigateur de serviteurs (recherche, tribus du lobby, exemplaires restants, probabilités)                             |
 
 Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fichier.log|.gz|.zip> --speed 10`.
 
 **Pool de serviteurs** : les exemplaires restants et les probabilités sont des **estimations** fondées uniquement sur ce que vous voyez (votre main, votre plateau, la boutique, les plateaux adverses vus en combat). Le pool réel est plus petit. Les règles (copies par niveau, emplacements de boutique) viennent du wiki et sont vérifiées sur des logs réels quand c'est possible : voir `seasons/s14/src/poolRules.ts`.
+
+**Historique** : chaque partie suivie en direct est enregistrée localement (`history.sqlite` dans le dossier de l'application). Les parties abandonnées ou interrompues sont listées mais exclues des moyennes. Le MMR n'est pas dans les logs : saisie manuelle facultative. Le bouton « Importer les anciens logs » rejoue les sessions conservées dans `Logs/` par le jeu.
 
 **Réseau** : seul accès, le téléchargement des données de cartes depuis HearthstoneJSON (mis en cache par version du jeu). Aucune télémétrie.
 
