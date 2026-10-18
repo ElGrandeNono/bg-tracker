@@ -1,8 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { buildVisibleView, Pipeline, readLogLines, type VisibleView } from '@bgt/core';
+import { Pipeline, readLogLines } from '@bgt/core';
 import { buildPoolCatalog, loadCardDb } from '@bgt/data';
-import { S14_POOL_RULES } from '@bgt/season-s14';
+import {
+  currentPoolRules as S14_POOL_RULES,
+  currentSeason,
+  overlayView,
+  type OverlayView,
+} from '../main/season.js';
 import type { PoolCard } from '@bgt/core';
 import type { CatalogCard } from '../shared/payload.js';
 import { catalogCards, poolPayload } from '../main/poolPayload.js';
@@ -20,23 +25,23 @@ if (fixture === undefined || out === undefined || cacheDir === undefined) {
   process.exit(1);
 }
 
-const pipeline = new Pipeline();
-const views: VisibleView[] = [];
+const pipeline = new Pipeline(currentSeason);
+const views: OverlayView[] = [];
 let lastKinds = 0;
 pipeline.subscribe(() => {
   // Comme l'overlay : uniquement l'état déjà affiché par le client.
-  const { bg, state } = pipeline.displayed;
+  const { bg } = pipeline.displayed;
   // Un instantané au milieu de chaque recrutement (après la fin du combat) et à chaque combat.
   for (; lastKinds < bg.timeline.length; lastKinds++) {
     const kind = bg.timeline[lastKinds]?.kind;
     if (kind === 'combatEnd' || kind === 'combatStart' || kind === 'eliminated') {
-      views.push(buildVisibleView(bg, state));
+      views.push(overlayView(pipeline.displayed));
     }
   }
 });
 for await (const line of readLogLines(fixture)) pipeline.feedLine(line);
 pipeline.end();
-views.push(buildVisibleView(pipeline.displayed.bg, pipeline.displayed.state));
+views.push(overlayView(pipeline.displayed));
 
 const build = views.at(-1)?.build ?? 'latest';
 let names: Record<string, string> = {};
@@ -53,6 +58,7 @@ try {
       ids.add(p.heroCardId);
       for (const m of p.lastBoard?.minions ?? []) ids.add(m.cardId);
     }
+    for (const id of v.season?.shownCardIds ?? []) ids.add(id);
   }
   names = Object.fromEntries([...ids].map((id) => [id, db.name(id)]));
 } catch (e) {

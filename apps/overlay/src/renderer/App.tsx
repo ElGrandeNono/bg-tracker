@@ -221,6 +221,7 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
       </ol>
       {!settings.compact && <Tribes view={view} />}
       {!settings.compact && <PoolSummary p={p} />}
+      {!settings.compact && <SeasonPanel p={p} />}
       {focus !== undefined && (
         <section className="board">
           <h3>
@@ -243,6 +244,68 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
       )}
     </div>
   );
+}
+
+/** Mécaniques de saison du joueur local (trinkets, Sombres dons, Activations, compteurs). */
+function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+  const s = p.view.season;
+  if (s === undefined) return null;
+  const n = (id: string): string => nameOf(p.names, id);
+  const lines: React.ReactNode[] = [];
+  if (s.trinkets.length > 0) {
+    lines.push(
+      <li key="t">
+        <span className="season__label">Bibelots</span>{' '}
+        {s.trinkets
+          .map((t) =>
+            t.kind === 'chosen'
+              ? n(t.cardId)
+              : `${t.slot === 'lesser' ? 'mineur' : 'majeur'} ${t.turnsLeft === undefined || t.turnsLeft <= 0 ? 'à choisir' : `dans ${t.turnsLeft} t.`}`,
+          )
+          .join(' · ')}
+      </li>,
+    );
+  }
+  if (s.darkGifts !== undefined) {
+    const dg = s.darkGifts;
+    lines.push(
+      <li
+        key="d"
+        title={dg.gifts.map((g) => `${n(g.giftCardId)} → ${n(g.minionCardId)}`).join(' · ')}
+      >
+        <span className="season__label">Sombres dons</span> <b>{dg.used}</b>/{dg.max}
+        {p.view.outcome === 'inProgress' &&
+          dg.used < dg.max &&
+          (dg.available ? (
+            <small className="season__ok"> dispo ({dg.cost ?? '?'} or)</small>
+          ) : (
+            <small> indispo</small>
+          ))}
+        {dg.gifts.length > 0 && <small> · {dg.gifts.map((g) => n(g.giftCardId)).join(', ')}</small>}
+      </li>,
+    );
+  }
+  if (s.activationsThisTurn.length > 0) {
+    lines.push(
+      <li key="a">
+        <span className="season__label">Activations</span> {s.activationsThisTurn.map(n).join(', ')}
+      </li>,
+    );
+  }
+  const c = s.counters;
+  const counters: string[] = [];
+  if (
+    c.tavernSpellBuff !== undefined &&
+    (c.tavernSpellBuff.attack > 0 || c.tavernSpellBuff.health > 0)
+  ) {
+    counters.push(`sorts +${c.tavernSpellBuff.attack}/+${c.tavernSpellBuff.health}`);
+  }
+  if (c.extraGoldNextTurn !== undefined && c.extraGoldNextTurn > 0)
+    counters.push(`+${c.extraGoldNextTurn} or au prochain tour`);
+  if (c.oldGod !== undefined) counters.push(`Divinité ${c.oldGod.attack}/${c.oldGod.health}`);
+  if (counters.length > 0) lines.push(<li key="c">{counters.join(' · ')}</li>);
+  if (lines.length === 0) return null;
+  return <ul className="season">{lines}</ul>;
 }
 
 /** Restants du pool aux niveaux accessibles (estimation : cartes vues uniquement). */

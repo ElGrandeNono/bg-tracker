@@ -238,6 +238,24 @@ small {
   color: var(--accent);
 }
 
+.season {
+  list-style: none;
+  margin: 0.4rem 0.3rem 0;
+  padding: 0.4rem 0 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.86em;
+  display: grid;
+  gap: 2px;
+}
+
+.season__label {
+  color: var(--muted);
+}
+
+.season__ok {
+  color: var(--accent);
+}
+
 /* ---- navigateur de serviteurs (fenêtre séparée) */
 
 .browser {

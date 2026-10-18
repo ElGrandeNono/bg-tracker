@@ -24,7 +24,6 @@ import {
   type VisibleView,
 } from '@bgt/core';
 import { buildPoolCatalog, loadCardDb, type CardDb } from '@bgt/data';
-import { S14_POOL_RULES } from '@bgt/season-s14';
 import type { PoolCard } from '@bgt/core';
 import {
   CHANNELS,
@@ -36,6 +35,7 @@ import {
 } from '../shared/payload.js';
 import { checkGameConfig, offerConfigFixes } from './gameSetup.js';
 import { catalogCards, poolPayload } from './poolPayload.js';
+import { currentPoolRules, currentSeason, overlayView } from './season.js';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
 import { loadSettings, saveSettings } from './settings.js';
 
@@ -72,7 +72,7 @@ const locale = args.locale === 'enUS' ? 'enUS' : 'frFR';
 
 const settingsFile = join(app.getPath('userData'), 'overlay-settings.json');
 let settings: OverlaySettings = { ...loadSettings(settingsFile), backdrop: standalone };
-const pipeline = new Pipeline();
+const pipeline = new Pipeline(currentSeason);
 const paths = defaultGamePaths();
 
 let win: BrowserWindow | undefined;
@@ -81,7 +81,7 @@ let browserWin: BrowserWindow | undefined;
 /** Fenêtres dont le renderer a signalé être prêt. */
 const readyContents = new Set<number>();
 /** Règles du pool de la saison en cours (seasons/s14). */
-const poolRules = S14_POOL_RULES;
+const poolRules = currentPoolRules;
 let poolCatalog: readonly PoolCard[] = [];
 let uiCatalog: readonly CatalogCard[] = [];
 let tray: Tray | undefined;
@@ -149,6 +149,7 @@ function namesFor(view: VisibleView): Record<string, string> {
     add(p.heroCardId);
     for (const m of p.lastBoard?.minions ?? []) add(m.cardId);
   }
+  for (const id of view.season?.shownCardIds ?? []) add(id);
   return names;
 }
 
@@ -169,7 +170,7 @@ function push(): void {
   if (win === undefined || !rendererReady) return;
   // Uniquement ce que le client a déjà affiché (horloge PowerTaskList, voir core/pipeline.ts).
   const shown = pipeline.displayed;
-  const view = buildVisibleView(shown.bg, shown.state);
+  const view = overlayView(shown);
   void ensureCardDb(view.build);
   const payload: OverlayPayload = {
     view,
@@ -198,7 +199,7 @@ pipeline.subscribe(() => {
   const recruits = bg.timeline.filter((e) => e.kind === 'recruit').length;
   if (recruits !== lastRecruitCount) {
     lastRecruitCount = recruits;
-    const timeout = buildVisibleView(bg, state).local.turnTimeoutSec;
+    const timeout = buildVisibleView(bg, state).local.turnTimeoutSec; // champ du cœur seul
     timerEndsAt =
       timeout === undefined || speed <= 0 ? undefined : Date.now() + (timeout * 1000) / speed;
   }

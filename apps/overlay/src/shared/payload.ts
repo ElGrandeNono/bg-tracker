@@ -1,4 +1,5 @@
 import type { Membership, PoolTierSummary, VisibleView } from '@bgt/core';
+import type { S14View } from '@bgt/season-s14';
 
 /** Contrat IPC entre le processus principal et le renderer de l'overlay. */
 
@@ -53,7 +54,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
 };
 
 export interface OverlayPayload {
-  readonly view: VisibleView;
+  readonly view: VisibleView<S14View>;
   /** Noms localisés des cartes présentes dans la vue (cardId → nom). */
   readonly names: Readonly<Record<string, string>>;
   readonly status: OverlayStatus;
