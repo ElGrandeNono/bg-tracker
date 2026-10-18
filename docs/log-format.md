@@ -69,6 +69,10 @@ Trois formes :
 
 **Joueur local** : l'entité `Player` dont le `GameAccountId` est non nul.
 
+### Mode de jeu
+
+`GameType` de l'en-tête : `GT_BATTLEGROUNDS` = solo (F1, F2, F3). `GT_BATTLEGROUNDS_DUO` = **Duos** : vu dans le `Power.log` réel de l'utilisateur le 18/10/2026 (en-tête seulement, log non versionné). C'est le critère de détection retenu (`gameModeOf`), à la place de `BACON_DUOS_PUNISH_LEAVERS` qui est présent en solo. Tout autre `GT_BATTLEGROUNDS*` est `unknown`. Hors solo, l'overlay n'affiche qu'un avertissement tant que le Duos n'est pas implémenté à partir d'une fixture Duos.
+
 ### Cycle de partie
 
 - `STEP=BEGIN_MULLIGAN` sur GameEntity : choix du héros (4 héros proposés dans F2, via `DebugPrintEntityChoices` `ChoiceType=MULLIGAN`).
@@ -90,6 +94,16 @@ Les héros des 7 autres joueurs sont visibles en jeu (classement) : les afficher
   - F1 : adversaires 4, 7, 3, 2, 5, 6 sur 6 combats ; F2 : 14 combats, tous avec un id.
 - Le **nom** de l'adversaire est celui que porte le dummy pendant le combat. Le renommage est décalé : il peut précéder le tag d'id (F2, combat 1), le suivre, n'arriver qu'à la fin du combat (F2, combat 13), voire ne jamais arriver (F1, combat 6). Règle : le premier nom du dummy jamais vu hors combat est celui de l'adversaire, sauf s'il est déjà attribué à un autre joueur. Le combat est annoncé dès que l'id est connu ; le nom complète l'enregistrement. Sur F1 et F2, chaque nom correspond toujours au même héros.
 - `NEXT_OPPONENT_PLAYER_ID` sur le joueur local (et son héros) : prochain adversaire, information affichée en jeu.
+
+### Infos du joueur local (F2)
+
+- **Or** : `RESOURCES - RESOURCES_USED` sur l'entité `Player` locale (3, 4, 5… en début de tour ; `RESOURCES_USED` baisse à la vente). L'or temporaire d'autres effets n'a pas été identifié.
+- **Minuteur** : `TIMEOUT` sur le joueur local, posé juste avant le recrutement, donne sa durée en secondes (40 s → recrutement mesuré de 41 s ; 55 s → 56 s). L'overlay décompte à partir de la réception du `TURN` impair : c'est une estimation.
+- **Coût d'amélioration** : `COST` du bouton `TB_BaconShopTechUp0N_Button` (`CARDTYPE=GAME_MODE_BUTTON`, `TECH_LEVEL` = niveau visé) contrôlé par le joueur local, en `PLAY`. Un nouveau bouton est créé à chaque tour ; on prend le plus récent.
+
+### Plateaux de combat (F2)
+
+Après `BACON_CURRENT_COMBAT_PLAYER_ID`, le jeu crée par `FULL_ENTITY` les copies des deux plateaux (`CARDTYPE=MINION`, `ZONE=PLAY`, `CONTROLLER` = joueur local ou dummy), puis les blocs `BLOCK_START BlockType=ATTACK`. Le plateau « vu » d'un adversaire est donc l'ensemble des serviteurs du dummy entrés en `PLAY` une fois l'adversaire connu, figé au premier bloc `ATTACK` (les effets de Début du combat déjà résolus y sont inclus). Stats : `ATK`, `HEALTH - DAMAGE` ; doré : `PREMIUM=1` ou cardId en `_G` ; mots-clés : `TAUNT`, `DIVINE_SHIELD`, `REBORN`, `VENOMOUS`, `WINDFURY`, `DEATHRATTLE`, `STEALTH` (tous vus nommés dans F2).
 
 ### Fin de partie et place
 
@@ -124,7 +138,7 @@ Sans `client.config` → `[Log] FileSizeLimit.Int=-1`, le jeu s'arrête vers 10 
 
 ## Inconnues (demander un log réel avant d'implémenter)
 
-- Mode Duos (critère de détection fiable, partenaire).
+- Mode Duos : détection connue (`GT_BATTLEGROUNDS_DUO`), tout le reste (partenaire, appariement, plateaux) attend une fixture Duos.
 - Victoire en 1re place ; défaite rapide (élimination en début de partie, a priori comme F2).
 - Reconnexion en cours de partie.
 - Quêtes, anomalies.

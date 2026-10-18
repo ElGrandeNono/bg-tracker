@@ -1,18 +1,20 @@
 # BG Tracker — guide pour Claude
 
-Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M1 terminé → M2** (overlay minimal + filtre fair-play). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
+Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M2 terminé → M3** (pool tracker, tribus, navigateur de serviteurs). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
 
 ## Commandes
 
-| Action                                  | Commande                                                                                                |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Installer                               | `pnpm install`                                                                                          |
-| Build (tsc -b, références de projets)   | `pnpm build`                                                                                            |
-| Tests (Vitest)                          | `pnpm test` (`pnpm test:watch`, `pnpm coverage`)                                                        |
-| Lint                                    | `pnpm lint`                                                                                             |
-| Format                                  | `pnpm format` / `pnpm format:check`                                                                     |
-| Compresser une fixture                  | `node scripts/gzip-fixture.mjs fixtures/<fichier>.log`                                                  |
-| Replay (build puis chronologie console) | `pnpm replay <fichier.log\|.gz\|.zip> [--speed N] [--quiet]` (`--speed 0` = instantané, 1 = temps réel) |
+| Action                                       | Commande                                                                                                |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Installer                                    | `pnpm install`                                                                                          |
+| Build (tsc -b, références de projets)        | `pnpm build`                                                                                            |
+| Tests (Vitest)                               | `pnpm test` (`pnpm test:watch`, `pnpm coverage`)                                                        |
+| Lint                                         | `pnpm lint`                                                                                             |
+| Format                                       | `pnpm format` / `pnpm format:check`                                                                     |
+| Compresser une fixture                       | `node scripts/gzip-fixture.mjs fixtures/<fichier>.log`                                                  |
+| Overlay en direct / replay / démo navigateur | `pnpm overlay` · `pnpm overlay:replay <log> --speed 10` · `pnpm overlay:demo` (UI seule, port 5199)     |
+| Capture de contrôle Electron                 | `apps/overlay`: `electron . --replay <log> --smoke <out.png>` (`BGT_DEBUG=1` pour le journal)           |
+| Replay (build puis chronologie console)      | `pnpm replay <fichier.log\|.gz\|.zip> [--speed N] [--quiet]` (`--speed 0` = instantané, 1 = temps réel) |
 
 Windows : Node et pnpm sont installés mais un shell ouvert avant l'installation n'a pas le PATH à jour (`C:\Program Files\nodejs`, `%APPDATA%\npm`).
 
@@ -46,7 +48,9 @@ cli/replay.ts         CLI `pnpm replay`
 acceptance.test.ts    tests d'acceptation sur les deux fixtures réelles (vérité terrain)
 ```
 
-`GameState` contient des infos cachées : il ne doit jamais atteindre l'UI sans le filtre de visibilité (M2).
+`GameState` contient des infos cachées : seule `visibility/view.ts` (`buildVisibleView`, liste blanche) alimente l'UI, test `visibility/view.test.ts`.
+
+`packages/data` : `loadCardDb` (HearthstoneJSON `/v1/<build>/<locale>/cards.json`, cache par build, repli `latest` puis cache périmé). `apps/overlay` : `src/main` (pipeline, `hsWindow.ts` user32 via koffi, réglages, config du jeu), `src/preload`, `src/renderer` (React), `src/shared/payload.ts` (contrat IPC), `build.mjs` (esbuild) + Vite. Détails : `docs/architecture.md`.
 
 ## Conventions
 
@@ -81,12 +85,17 @@ acceptance.test.ts    tests d'acceptation sur les deux fixtures réelles (vérit
 
 ## Jalons
 
-M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play · M3 pool + tribus + navigateur · M4 mécaniques saisonnières · M5 simulateur · M6 SQLite + stats + replay de partie · M7 personnalisation, streamer, i18n, packaging · M8 docs.
+M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play ✅ · M3 pool + tribus + navigateur · M4 mécaniques saisonnières · M5 simulateur · M6 SQLite + stats + replay de partie · M7 personnalisation, streamer, i18n, packaging · M8 docs.
 
 Critère M1 : sur les deux fixtures, chronologie correcte (tours, combats et adversaires, tiers, places) ; partie complète → `TB_BaconShop_HERO_55`, place 3, tribus Dragon/Démons/Murloc/Mécas/Élémentaires ; log tronqué → avertissement sans crash.
+
+## Pièges d'environnement
+
+- **Avast** (antivirus de l'utilisateur) a mis `electron.exe` en quarantaine (`IDP.Generic`) quand l'overlay lançait un PowerShell masqué `-EncodedCommand` + `Add-Type user32`. Ne jamais réintroduire ce schéma : user32 passe par koffi. Si `node_modules/electron/dist/electron.exe` manque : `node node_modules/electron/install.js` dans `apps/overlay` (pnpm bloque parfois le script d'installation).
+- Les binaires Electron et esbuild sont dans `onlyBuiltDependencies` (pnpm-workspace.yaml). La CI pose `ELECTRON_SKIP_BINARY_DOWNLOAD=1`.
 
 ## À demander à l'utilisateur au bon moment
 
 - Fixture n°3 reçue (abandon, `bg-solo-2026-10-18-abandon`). Écart à lui signaler : il a mesuré « taverne 2 », le log montre le héros local à 1.
 - Avant M4 : Aberrations / Naga présents dans ses parties actuelles ? (36.6.1 a ajouté les Aberrations et retiré les Naga ; la partie du 18/10 montre des Naga.)
-- Avant le mode Duos : fixture n°4.
+- Avant le mode Duos : fixture n°4. L'utilisateur joue en Duos (log du 18/10/2026 19:07 sur sa machine, `GT_BATTLEGROUNDS_DUO`) : lui demander de l'anonymiser et de le fournir, ne jamais le copier soi-même.

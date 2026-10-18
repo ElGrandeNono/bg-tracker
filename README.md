@@ -4,7 +4,7 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 > **Non affilié à Blizzard Entertainment.** Hearthstone et Battlegrounds sont des marques de Blizzard Entertainment, Inc. Aucun asset Blizzard n'est inclus dans ce dépôt ni dans l'installeur : les données de cartes et les images sont téléchargées au runtime depuis [HearthstoneJSON](https://hearthstonejson.com/) et mises en cache localement.
 
-État : **M1**. Le parseur rejoue un `Power.log` en console (`pnpm replay <fichier>`) ; pas encore d'overlay. Le format du log est documenté dans [docs/log-format.md](docs/log-format.md).
+État : **M2**. Overlay minimal en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites. Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
 
 ## Principes
 
@@ -31,6 +31,27 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
    Effet vérifié : une partie complète de 27 min (61 Mo) écrite sans troncature.
 
 L'application proposera de faire ces deux réglages pour vous, avec votre accord.
+
+## Utiliser l'overlay
+
+Le jeu doit être en mode **fenêtré** ou **plein écran fenêtré** : un overlay ne peut pas s'afficher au-dessus d'un plein écran exclusif.
+
+```bash
+pnpm overlay
+```
+
+| Raccourci  | Action                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| Ctrl+Maj+H | afficher / masquer                                                                          |
+| Ctrl+Maj+U | déverrouiller pour déplacer les panneaux (la souris est alors capturée), puis reverrouiller |
+| Ctrl+Maj+O | opacité                                                                                     |
+| Ctrl+Maj+C | mode compact                                                                                |
+
+Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fichier.log|.gz|.zip> --speed 10`.
+
+**Réseau** : seul accès, le téléchargement des données de cartes depuis HearthstoneJSON (mis en cache par version du jeu). Aucune télémétrie.
+
+**Antivirus** : l'overlay suit la position de la fenêtre du jeu via les fonctions standard de Windows (`user32`). Il ne lit jamais la mémoire du jeu.
 
 ## Développement
 
