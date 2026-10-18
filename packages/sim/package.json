@@ -10,9 +10,17 @@
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./worker": {
+      "source": "./src/worker.ts",
+      "types": "./dist/worker.d.ts",
+      "default": "./dist/worker.js"
     }
   },
   "files": [
     "dist"
-  ]
+  ],
+  "devDependencies": {
+    "@bgt/core": "workspace:*"
+  }
 }
