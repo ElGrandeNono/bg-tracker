@@ -1,0 +1,19 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+out/
+release/
+
+# Logs bruts : seuls les .gz anonymisés sont versionnés (voir fixtures/README.md).
+fixtures/*.log
+*.log
+
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Réglages locaux de Claude Code
+.claude/settings.local.json
