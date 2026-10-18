@@ -19,18 +19,20 @@ if (fixture === undefined || out === undefined || cacheDir === undefined) {
 const pipeline = new Pipeline();
 const views: VisibleView[] = [];
 let lastKinds = 0;
-pipeline.subscribe((bg) => {
+pipeline.subscribe(() => {
+  // Comme l'overlay : uniquement l'état déjà affiché par le client.
+  const { bg, state } = pipeline.displayed;
   // Un instantané au milieu de chaque recrutement (après la fin du combat) et à chaque combat.
   for (; lastKinds < bg.timeline.length; lastKinds++) {
     const kind = bg.timeline[lastKinds]?.kind;
     if (kind === 'combatEnd' || kind === 'combatStart' || kind === 'eliminated') {
-      views.push(buildVisibleView(bg, pipeline.state));
+      views.push(buildVisibleView(bg, state));
     }
   }
 });
 for await (const line of readLogLines(fixture)) pipeline.feedLine(line);
 pipeline.end();
-views.push(buildVisibleView(pipeline.bg, pipeline.state));
+views.push(buildVisibleView(pipeline.displayed.bg, pipeline.displayed.state));
 
 const build = views.at(-1)?.build ?? 'latest';
 let names: Record<string, string> = {};

@@ -148,7 +148,9 @@ function schedulePush(): void {
 
 function push(): void {
   if (win === undefined || !rendererReady) return;
-  const view = buildVisibleView(pipeline.bg, pipeline.state);
+  // Uniquement ce que le client a déjà affiché (horloge PowerTaskList, voir core/pipeline.ts).
+  const shown = pipeline.displayed;
+  const view = buildVisibleView(shown.bg, shown.state);
   void ensureCardDb(view.build);
   const payload: OverlayPayload = {
     view,
@@ -165,13 +167,14 @@ function push(): void {
   }
 }
 
-pipeline.subscribe((bg) => {
-  // Minuteur : le recrutement démarre à la réception de l'entrée `recruit` ; sa durée est le
-  // `TIMEOUT` du joueur local. En replay accéléré, la durée est divisée par la vitesse.
+pipeline.subscribe(() => {
+  // Minuteur : le recrutement démarre quand le CLIENT affiche l'entrée `recruit` ; sa durée est
+  // le `TIMEOUT` du joueur local. En replay accéléré, la durée est divisée par la vitesse.
+  const { bg, state } = pipeline.displayed;
   const recruits = bg.timeline.filter((e) => e.kind === 'recruit').length;
   if (recruits !== lastRecruitCount) {
     lastRecruitCount = recruits;
-    const timeout = buildVisibleView(bg, pipeline.state).local.turnTimeoutSec;
+    const timeout = buildVisibleView(bg, state).local.turnTimeoutSec;
     timerEndsAt =
       timeout === undefined || speed <= 0 ? undefined : Date.now() + (timeout * 1000) / speed;
   }
