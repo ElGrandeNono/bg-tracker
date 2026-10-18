@@ -10,6 +10,9 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
  fichier ──▶ replayFile ────────────▲            └──────┬───────┘   └─────┬─────┘
  .log/.gz/.zip (vitesse réglable)                       │                 │
                                                         ▼                 ▼
+                                     pipeline.displayed : instantané retenu tant que
+                                     PowerTaskList (rythme d'animation) n'a pas rattrapé
+                                                        │
                                                ┌────────────────────────────────┐
                                                │ buildVisibleView (FILTRE       │
                                                │ FAIR-PLAY, liste blanche)      │
@@ -35,6 +38,7 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
 - **Immutabilité** : `reduceGameState` et `reduceBgGame` sont des fonctions pures. Les entités sont dans un trie persistant (`IdMap`, 2 niveaux de 256) : une écriture copie ~512 cases au lieu de toute la table, ce qui rejoue 440 000 lignes en ~3 s.
 - **Tolérance** : une ligne inconnue est comptée dans `parser.diagnostics` puis ignorée ; un tag inconnu est gardé tel quel ; une troncature ne remet jamais l'état à zéro.
 - **Fair play** : `GameState` contient des informations cachées. Seule `buildVisibleView` (liste blanche) produit ce que voit l'UI. Le test `visibility/view.test.ts` rejoue les trois fixtures réelles et vérifie, avec un oracle indépendant, que toute carte de la vue a été montrée au joueur ; aucun identifiant d'entité ne sort.
+- **Fair play temporel** : `GameState` connaît l'issue d'un combat 8 à 48 s avant que le client ne l'anime. L'UI lit `pipeline.displayed`, un instantané libéré au rythme des repères affichés par `PowerTaskList` (qui ne fournit aucune donnée). Voir [log-format.md](log-format.md#décalage-daffichage-des-combats-f2-f4--enjeu-fair-play).
 - **Mode de jeu** : seul le solo (`GT_BATTLEGROUNDS`) est pris en charge ; Duos et modes inconnus n'affichent qu'un avertissement (jamais d'info fausse sans avertissement).
 - **Issue de partie** : `finished` (élimination ou `STATE=COMPLETE`) ou `interrupted` (fin du flux ou nouvelle partie sans événement de fin : abandon, troncature). Jamais de place finale inventée.
 

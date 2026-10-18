@@ -139,7 +139,11 @@ Nagas : retirés du pool au patch actuel (constat de l'utilisateur), ils n'appar
 
 ### Décalage d'affichage des combats (F2, F4) — enjeu fair-play
 
-`GameState` reçoit le combat entier en moins d'une seconde ; le client l'anime ensuite. `PowerTaskList` suit l'animation. Mesure du `TURN` de fin de combat : écart GameState → affichage de **7,7 à 48,1 s** (F2) et de 7,9 à 30,4 s (F4) ; au début du combat l'écart est ≤ 2 s. Tout ce que le modèle déduit de `GameState` pendant un combat (PV perdus, classement, élimination, invocations) est donc connu du tracker avant d'être visible à l'écran. À corriger (voir CLAUDE.md).
+`GameState` reçoit le combat entier en moins d'une seconde ; le client l'anime ensuite. `PowerTaskList` suit l'animation. Mesure du `TURN` de fin de combat : écart GameState → affichage de **7,7 à 48,1 s** (F2) et de 7,9 à 30,4 s (F4) ; au début du combat l'écart est ≤ 2 s. Tout ce que le modèle déduit de `GameState` pendant un combat (PV perdus, classement, élimination, invocations) est donc connu du tracker avant d'être visible à l'écran.
+
+**Horloge d'affichage** (`power/markers.ts`, `pipeline.ts`). `GameState` reste la seule source de DONNÉES ; `PowerTaskList` ne sert que d'horloge. Les deux flux contiennent la même séquence de repères, dans le même ordre : blocs `ATTACK` et `DEATHS`, `TURN` et `BACON_IN_COMBAT_PHASE` sur GameEntity, `STATE=COMPLETE`, `PLAYSTATE` terminal (séquences identiques vérifiées : 302 repères dans F2, 83 dans F1, 39 dans F4 ; dans F3 `PowerTaskList` s'arrête 2 repères avant). Exclus : `STATE=RUNNING` (`Entity=4` d'un côté, `Entity=GameEntity` de l'autre) et `PLAYSTATE=PLAYING/LOSING` (ordre différent dans F2). Le pipeline prend un instantané immuable juste avant chaque repère `GameState` et ne le libère que lorsque `PowerTaskList` affiche le même repère : `pipeline.displayed` est la seule source de l'UI. Garde-fous : réalignement sur 8 repères, horloge désactivée après 5 désaccords, libération après 120 s de temps de log, et à la fin du flux.
+
+Test (`displayClock.test.ts`) : sur les 4 fixtures, le `TURN` affiché ne dépasse jamais celui des lignes `PowerTaskList` brutes ; dans F2, quand GameState apprend la perte de 10 PV au combat 7, l'overlay montre encore 25.
 
 ### Mécaniques de saison vues (non exploitées en M1)
 
