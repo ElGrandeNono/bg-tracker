@@ -11,8 +11,9 @@ import type { SimInput, SimMinionInput, SimSummary } from './types.js';
  * Issues réelles du joueur local (héros Fongimancien Flurgl, 12 d'armure au départ) :
  * combats 1-2 sans dégâts ; défaites 3 (−4, sur l'armure), 4 (−4, armure), 5 (−9 : 4 d'armure +
  * 5 PV), 7 (−10), 8 (−12) ; aucun dégât aux combats 6 et 9 à 13 ; mort au combat 14.
- * Le combat 4 est une défaite que le simulateur ne voit pas (effets de 3 cartes non simulés) :
- * il est exclu des assertions et documenté dans docs/simulator-coverage.md.
+ * Le combat 4 est une défaite que le simulateur juge minoritaire (~26 %) : l'issue réelle doit
+ * rester possible, avec les bons dégâts. Les plateaux de test n'ont pas les caractéristiques de
+ * base des cartes (Réincarnation) : voir l'overlay, qui les lit dans les données de cartes.
  */
 
 const fixture = (name: string): string =>
@@ -88,6 +89,13 @@ describe('simulateur contre les combats réels (partie complète)', () => {
       expect(s.damageToA?.max).toBeGreaterThanOrEqual(damage);
     },
   );
+
+  it('combat 4 : défaite minoritaire mais possible, 4 dégâts', () => {
+    const s = r(4);
+    expect(s.loss).toBeGreaterThan(0);
+    expect(s.damageToA?.min).toBeLessThanOrEqual(4);
+    expect(s.damageToA?.max).toBeGreaterThanOrEqual(4);
+  });
 
   it.each([6, 9, 10, 11, 12, 13])(
     'combat %i : aucun dégât subi, défaite jugée minoritaire',

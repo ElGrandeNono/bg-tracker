@@ -115,6 +115,30 @@ describe('mots-clés', () => {
     expect(always(fight([m(2, 1, { reborn: true })], [m(1, 4)])).tie).toBe(1);
   });
 
+  it('Réincarnation : revient comme la carte d’origine (Bouclier divin retrouvé)', () => {
+    // 1/1 Bouclier divin + Réincarnation, bouclier déjà perdu, contre un 1/3 :
+    // sans les caractéristiques de base il revient sans bouclier (le 1/3 survit : défaite) ;
+    // avec, son bouclier absorbe un coup et il achève le 1/3 en mourant (égalité, quel que soit
+    // l'ordre des attaques).
+    const gardien = (withBase: boolean): SimMinionInput =>
+      m(1, 1, {
+        reborn: true,
+        ...(withBase
+          ? {
+              base: {
+                attack: 1,
+                taunt: false,
+                divineShield: true,
+                venomous: false,
+                windfury: false,
+              },
+            }
+          : {}),
+      });
+    expect(always(fight([gardien(false)], [m(1, 3)])).loss).toBe(1);
+    expect(always(fight([gardien(true)], [m(1, 3)])).tie).toBe(1);
+  });
+
   it('Furie des vents : deux attaques par tour', () => {
     const rng = new Rng(11);
     const o = simulateCombat(
@@ -149,6 +173,57 @@ describe('registre d’effets', () => {
     expect(always(fight([tireur(false)], [m(1, 1)])).tie).toBe(1);
     expect(always(fight([tireur(true)], [m(1, 1)])).win).toBe(1);
     expect(always(fight([m(0, 1)], [m(1, 1)])).loss).toBe(1);
+  });
+
+  it('Gardien de la lueur : Ralliement +2 ATQ avant le coup (doré : +4)', () => {
+    const rng = new Rng(21);
+    const gardien = (golden: boolean): SimMinionInput =>
+      m(golden ? 2 : 1, golden ? 8 : 4, { cardId: 'BG29_888', golden });
+    // Contre un 0/6 : normal 3 puis 5 (2 coups) ; doré 2+4 = 6 (1 coup).
+    expect(simulateCombat(fight([gardien(false)], [m(0, 6)]), rng, DEFAULT_REGISTRY).attacks).toBe(
+      2,
+    );
+    expect(simulateCombat(fight([gardien(true)], [m(0, 6)]), rng, DEFAULT_REGISTRY).attacks).toBe(
+      1,
+    );
+  });
+
+  it('Crache-bile : Ralliement, confère Venimosité à un autre Murloc', () => {
+    const rng = new Rng(23);
+    const crache = m(1, 10, { cardId: 'BG33_318', venomous: true, tribes: ['MURLOC'] });
+    const allie = m(1, 30, { tribes: ['MURLOC'] });
+    // Crache-bile détruit la 1re cible (Venimosité) et rend le Murloc allié venimeux : 2 coups.
+    const o = simulateCombat(fight([crache, allie], [m(0, 50), m(0, 50)]), rng, DEFAULT_REGISTRY);
+    expect(o.result).toBe('win');
+    expect(o.attacks).toBe(2);
+    // L'allié non Murloc ne reçoit rien : il lui faut 50 coups pour la seconde cible.
+    const autre = m(1, 30, { tribes: ['MECH'] });
+    expect(
+      simulateCombat(fight([crache, autre], [m(0, 50), m(0, 50)]), rng, DEFAULT_REGISTRY).attacks,
+    ).toBe(51);
+  });
+
+  it('Élémentaire du feu de brousse : le surplus de dégâts tue un voisin de la cible', () => {
+    const rng = new Rng(29);
+    // 6 ATQ sur la Provocation 0/1 : 5 de surplus sur un des deux 0/4 adjacents → 2 coups au total.
+    const board = [m(0, 4), m(0, 1, { taunt: true }), m(0, 4)];
+    for (let i = 0; i < 10; i++) {
+      expect(
+        simulateCombat(fight([m(6, 30, { cardId: 'BGS_126' })], board), rng, DEFAULT_REGISTRY)
+          .attacks,
+      ).toBe(2);
+    }
+    expect(simulateCombat(fight([m(6, 30)], board), rng, DEFAULT_REGISTRY).attacks).toBe(3);
+  });
+
+  it('Début du combat : exact sur un plateau figé, approximatif sinon ; doré non vérifié', () => {
+    expect(effectStatus('BG27_556', ['TRIGGER_VISUAL'], { startOfCombatApplied: true })).toBe(
+      'supported',
+    );
+    expect(effectStatus('BG27_556', ['TRIGGER_VISUAL'])).toBe('unsupported');
+    expect(effectStatus('BGS_126', ['TRIGGER_VISUAL'])).toBe('supported');
+    expect(effectStatus('BGS_126', ['TRIGGER_VISUAL'], { golden: true })).toBe('unsupported');
+    expect(effectStatus('BG36_703', ['TRIGGER_VISUAL'])).toBe('supported'); // déclencheur de recrutement
   });
 
   it('statut de simulation selon les mécaniques et le registre', () => {
