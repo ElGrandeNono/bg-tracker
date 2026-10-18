@@ -1,6 +1,7 @@
 import type { Membership, PoolTierSummary, VisibleView } from '@bgt/core';
 import type { S14View } from '@bgt/season-s14';
 import type { SimSummary } from '@bgt/sim';
+import type { GameEdit, GameRecord } from '@bgt/history';
 
 /** Contrat IPC entre le processus principal et le renderer de l'overlay. */
 
@@ -11,7 +12,47 @@ export const CHANNELS = {
   rendered: 'bgt:rendered',
   catalog: 'bgt:catalog',
   openBrowser: 'bgt:open-browser',
+  openDashboard: 'bgt:open-dashboard',
+  historyList: 'bgt:history-list',
+  historyGet: 'bgt:history-get',
+  historyUpdate: 'bgt:history-update',
+  historyExport: 'bgt:history-export',
+  historyImport: 'bgt:history-import',
+  historyChanged: 'bgt:history-changed',
+  historyProgress: 'bgt:history-progress',
 } as const;
+
+/** Liste de l'historique et noms des cartes citées (cardId → nom localisé). */
+export interface HistoryListing {
+  readonly games: readonly GameRecord[];
+  readonly names: Readonly<Record<string, string>>;
+}
+
+export interface HistoryGame {
+  readonly game: GameRecord;
+  readonly names: Readonly<Record<string, string>>;
+}
+
+/** Avancement de l'import des anciens logs. */
+export interface ImportProgress {
+  readonly done: number;
+  readonly total: number;
+  readonly added: number;
+  readonly current: string | undefined;
+}
+
+/** API de l'historique exposée au tableau de bord. */
+export interface HistoryBridge {
+  list(): Promise<HistoryListing>;
+  get(id: number): Promise<HistoryGame | undefined>;
+  update(id: number, edit: GameEdit): Promise<void>;
+  /** Ouvre une boîte « Enregistrer sous » ; renvoie le chemin écrit ou undefined (annulé). */
+  exportGames(format: 'csv' | 'json'): Promise<string | undefined>;
+  /** Importe les parties BG des anciens dossiers Logs du jeu ; renvoie le nombre ajouté. */
+  importLogs(): Promise<number>;
+  onChanged(listener: () => void): () => void;
+  onImportProgress(listener: (p: ImportProgress) => void): () => void;
+}
 
 export type HsWindowState = 'notFound' | 'ok' | 'minimized' | 'background' | 'fullscreen';
 
@@ -114,4 +155,6 @@ export interface BgtBridge {
   /** Fiches du pool, à chaque changement de build. */
   onCatalog(listener: (cards: readonly CatalogCard[]) => void): () => void;
   openBrowser(): void;
+  openDashboard(): void;
+  readonly history: HistoryBridge;
 }

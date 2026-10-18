@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { readdirSync } from 'node:fs';
 import { Pipeline, readLogLines } from '@bgt/core';
+import { GameRecorder, HistoryStore } from '@bgt/history';
 import { buildPoolCatalog, loadCardDb, type CardDb } from '@bgt/data';
 import { simulate } from '@bgt/sim';
 import { buildSimRequest } from '../main/combatSim.js';
@@ -11,7 +13,7 @@ import {
   type OverlayView,
 } from '../main/season.js';
 import type { PoolCard } from '@bgt/core';
-import type { CatalogCard } from '../shared/payload.js';
+import type { CatalogCard, HistoryGame } from '../shared/payload.js';
 import { catalogCards, poolPayload } from '../main/poolPayload.js';
 import { DEFAULT_SETTINGS, type OverlayPayload } from '../shared/payload.js';
 
@@ -106,4 +108,49 @@ const frames: OverlayPayload[] = views.map((view) => ({
 await mkdir(dirname(out), { recursive: true });
 await writeFile(out, JSON.stringify(frames));
 await writeFile(join(dirname(out), 'demo-catalog.json'), JSON.stringify(uiCatalog));
+
+// Historique de démonstration : les parties des fixtures, enregistrées comme en direct puis
+// stockées dans une base SQLite en mémoire (ids, tri) ; les noms viennent des données de cartes.
+const store = new HistoryStore(':memory:');
+for (const name of readdirSync(dirname(fixture)).filter((f) => f.endsWith('.Power.log.gz'))) {
+  const dir = /(\d{4})-(\d\d)-(\d\d)/.exec(name);
+  const date =
+    dir === null ? undefined : new Date(Number(dir[1]), Number(dir[2]) - 1, Number(dir[3]));
+  const recorder = new GameRecorder((id) => db?.baseHero(id)?.id ?? id, date);
+  const p = new Pipeline(currentSeason);
+  p.subscribe(() => {
+    const r = recorder.observe(overlayView(p.displayed));
+    if (r !== undefined) store.insert(r);
+  });
+  for await (const line of readLogLines(join(dirname(fixture), name))) p.feedLine(line);
+  p.end();
+  const last = recorder.observe(overlayView(p.displayed)) ?? recorder.flush();
+  if (last !== undefined) store.insert(last);
+}
+const games = store.list();
+const details: Record<number, HistoryGame> = {};
+const allIds = new Set<string>();
+for (const g of games) {
+  const full = store.get(g.id ?? -1);
+  if (full === undefined) continue;
+  const ids = new Set<string>([full.heroCardId, full.heroBaseCardId]);
+  for (const r of full.replay) {
+    for (const m of [...r.localBoard, ...(r.opponent?.board ?? [])]) ids.add(m.cardId);
+    if (r.opponent !== undefined) ids.add(r.opponent.heroCardId);
+  }
+  ids.forEach((i) => allIds.add(i));
+  details[g.id ?? -1] = {
+    game: full,
+    names: Object.fromEntries([...ids].map((i) => [i, db?.name(i) ?? i])),
+  };
+}
+await writeFile(
+  join(dirname(out), 'demo-history.json'),
+  JSON.stringify({
+    games,
+    names: Object.fromEntries([...allIds].map((i) => [i, db?.name(i) ?? i])),
+    details,
+  }),
+);
+console.log(`${games.length} parties dans l'historique de démo`);
 console.log(`${frames.length} instantanés → ${join(out)}`);

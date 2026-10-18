@@ -38,6 +38,7 @@ import { checkGameConfig, offerConfigFixes } from './gameSetup.js';
 import { catalogCards, poolPayload } from './poolPayload.js';
 import { currentPoolRules, currentSeason, overlayView } from './season.js';
 import { buildSimRequest, type SimRequest } from './combatSim.js';
+import { HistoryService } from './history.js';
 import { SimulationPool } from '@bgt/sim';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
 import { loadSettings, saveSettings } from './settings.js';
@@ -63,6 +64,8 @@ const { values: args } = parseArgs({
     replay: { type: 'string' },
     speed: { type: 'string' },
     smoke: { type: 'string' },
+    // Capture de contrôle d'une fenêtre secondaire : `browser` ou `dashboard`.
+    'smoke-route': { type: 'string' },
     standalone: { type: 'boolean' },
     locale: { type: 'string' },
   },
@@ -81,6 +84,12 @@ const paths = defaultGamePaths();
 let win: BrowserWindow | undefined;
 /** Navigateur de serviteurs (fenêtre normale, ouverte à la demande). */
 let browserWin: BrowserWindow | undefined;
+/** Tableau de bord : historique, statistiques, replay de partie. */
+let dashboardWin: BrowserWindow | undefined;
+/** Historique local (créé au démarrage de l'application). */
+let history: HistoryService | undefined;
+/** Power.log suivi en direct (exclu de l'import des anciens logs). */
+let currentLogPath: string | undefined;
 /** Fenêtres dont le renderer a signalé être prêt. */
 const readyContents = new Set<number>();
 /** Règles du pool de la saison en cours (seasons/s14). */
@@ -216,10 +225,12 @@ function schedulePush(): void {
 }
 
 function push(): void {
-  if (win === undefined || !rendererReady) return;
   // Uniquement ce que le client a déjà affiché (horloge PowerTaskList, voir core/pipeline.ts).
   const shown = pipeline.displayed;
   const view = overlayView(shown);
+  // L'historique n'enregistre que le suivi en direct (un replay de test ne le pollue pas).
+  if (status.source === 'live') history?.observe(view);
+  if (win === undefined || !rendererReady) return;
   void ensureCardDb(view.build);
   const payload: OverlayPayload = {
     view,
@@ -326,17 +337,37 @@ function onHsSample(sample: HsWindowSample): void {
   schedulePush();
 }
 
-/** Navigateur de serviteurs : fenêtre classique (cadre, focus), même renderer, route #browser. */
+/**
+ * Fenêtres classiques (cadre, focus), même renderer et même preload que l'overlay :
+ * navigateur de serviteurs (route #browser) et tableau de bord (route #dashboard).
+ */
 function openBrowser(): void {
-  if (browserWin !== undefined && !browserWin.isDestroyed()) {
-    browserWin.show();
-    browserWin.focus();
-    return;
+  browserWin = openAuxWindow(browserWin, 'browser', 'BG Tracker — serviteurs', () => {
+    browserWin = undefined;
+  });
+}
+
+function openDashboard(): void {
+  dashboardWin = openAuxWindow(dashboardWin, 'dashboard', 'BG Tracker — historique', () => {
+    dashboardWin = undefined;
+  });
+}
+
+function openAuxWindow(
+  existing: BrowserWindow | undefined,
+  route: string,
+  title: string,
+  onClosed: () => void,
+): BrowserWindow {
+  if (existing !== undefined && !existing.isDestroyed()) {
+    existing.show();
+    existing.focus();
+    return existing;
   }
   const w = new BrowserWindow({
-    width: 1040,
-    height: 760,
-    title: 'BG Tracker — serviteurs',
+    width: route === 'dashboard' ? 1180 : 1040,
+    height: 780,
+    title,
     autoHideMenuBar: true,
     backgroundColor: '#12141c',
     webPreferences: {
@@ -348,13 +379,13 @@ function openBrowser(): void {
       spellcheck: false,
     },
   });
-  browserWin = w;
   const id = w.webContents.id;
   w.on('closed', () => {
     readyContents.delete(id);
-    browserWin = undefined;
+    onClosed();
   });
-  void w.loadFile(join(here, '../renderer/index.html'), { hash: 'browser' });
+  void w.loadFile(join(here, '../renderer/index.html'), { hash: route });
+  return w;
 }
 
 function createWindow(): BrowserWindow {
@@ -423,6 +454,7 @@ const SHORTCUTS: readonly [string, string, () => void][] = [
     },
   ],
   ['CommandOrControl+Shift+B', 'Navigateur de serviteurs', openBrowser],
+  ['CommandOrControl+Shift+D', 'Historique et statistiques', openDashboard],
 ];
 
 function trayIcon(): Electron.NativeImage {
@@ -473,10 +505,15 @@ async function startSource(): Promise<void> {
   watcher.on('line', (l) => {
     pipeline.feedLine(l);
   });
-  watcher.on('fileChanged', () => {
+  watcher.on('fileChanged', (path) => {
     // Nouvelle session de jeu : la partie de la session précédente est close.
-    if (!first) pipeline.end();
+    if (!first) {
+      pipeline.end();
+      push(); // la partie close est enregistrée avant de changer de session
+    }
     first = false;
+    currentLogPath = path;
+    history?.setSession(path);
   });
   watcher.start();
   app.on('will-quit', () => {
@@ -496,6 +533,9 @@ ipcMain.on(CHANNELS.ready, (e) => {
 ipcMain.on(CHANNELS.openBrowser, () => {
   openBrowser();
 });
+ipcMain.on(CHANNELS.openDashboard, () => {
+  openDashboard();
+});
 ipcMain.on(CHANNELS.saveLayout, (_e, panels: OverlaySettings['panels']) => {
   applySettings({ ...settings, panels });
 });
@@ -505,7 +545,15 @@ ipcMain.on(CHANNELS.rendered, () => {
   // Replay : capture une fois le fichier rejoué ; direct : 5 s après le premier rendu.
   if (replayPath !== undefined && !status.replayDone) return;
   smokeScheduled = true;
-  const target = win;
+  let target = win;
+  const route = args['smoke-route'];
+  if (route === 'dashboard') {
+    openDashboard();
+    target = dashboardWin ?? win;
+  } else if (route === 'browser') {
+    openBrowser();
+    target = browserWin ?? win;
+  }
   setTimeout(
     () => {
       void target.webContents.capturePage().then(async (img) => {
@@ -513,7 +561,7 @@ ipcMain.on(CHANNELS.rendered, () => {
         app.quit();
       });
     },
-    replayPath === undefined ? 12_000 : 300,
+    replayPath === undefined ? 12_000 : route === undefined ? 300 : 3000,
   );
 });
 
@@ -521,6 +569,18 @@ app.disableHardwareAcceleration(); // overlay léger : évite le coût GPU d'une
 void app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => {
     cb(false);
+  });
+  history = new HistoryService(
+    app.getPath('userData'),
+    () => cardDb,
+    () => [win, browserWin, dashboardWin],
+  );
+  history.registerIpc(
+    () => paths.logsRoot,
+    () => currentLogPath,
+  );
+  app.on('will-quit', () => {
+    history?.close();
   });
   win = createWindow();
   if (smokeOut === undefined) {

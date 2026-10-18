@@ -1,4 +1,14 @@
-import type { BgtBridge, CatalogCard, OverlayPayload } from '../shared/payload.js';
+import type {
+  BgtBridge,
+  CatalogCard,
+  HistoryGame,
+  HistoryListing,
+  OverlayPayload,
+} from '../shared/payload.js';
+
+interface DemoHistory extends HistoryListing {
+  readonly details: Readonly<Record<number, HistoryGame>>;
+}
 
 /**
  * Pont de démonstration pour le navigateur : charge `demo.json` (instantanés générés par
@@ -7,6 +17,9 @@ import type { BgtBridge, CatalogCard, OverlayPayload } from '../shared/payload.j
  */
 export function demoBridge(): BgtBridge {
   const listeners = new Set<(p: OverlayPayload) => void>();
+  const demoHistory: Promise<DemoHistory> = fetch('./demo-history.json')
+    .then((r) => r.json() as Promise<DemoHistory>)
+    .catch(() => ({ games: [], names: {}, details: {} }));
   let frames: OverlayPayload[] = [];
   let index = 0;
   const emit = (): void => {
@@ -53,6 +66,18 @@ export function demoBridge(): BgtBridge {
     },
     openBrowser() {
       window.open('./#browser', '_blank');
+    },
+    openDashboard() {
+      window.open('./#dashboard', '_blank');
+    },
+    history: {
+      list: () => demoHistory.then((h) => ({ games: h.games, names: h.names })),
+      get: (id) => demoHistory.then((h) => h.details[id]),
+      update: () => Promise.resolve(),
+      exportGames: () => Promise.resolve(undefined),
+      importLogs: () => Promise.resolve(0),
+      onChanged: () => () => undefined,
+      onImportProgress: () => () => undefined,
     },
   };
 }
