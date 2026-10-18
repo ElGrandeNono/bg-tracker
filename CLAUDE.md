@@ -1,6 +1,6 @@
 # BG Tracker — guide pour Claude
 
-Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M4 terminé → M5** (simulateur de combat). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
+Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M5 terminé → M6** (historique SQLite, tableau de bord de stats, replay de partie). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
 
 ## Commandes
 
@@ -50,6 +50,8 @@ acceptance.test.ts    tests d'acceptation sur les deux fixtures réelles (vérit
 
 `GameState` contient des infos cachées : seule `visibility/view.ts` (`buildVisibleView`, liste blanche) alimente l'UI, test `visibility/view.test.ts`.
 
+Simulateur : `packages/sim` (moteur `engine.ts` avec ses sources, registre d'effets `registry.ts`, Monte Carlo `monteCarlo.ts`, `SimulationPool` en worker threads `pool.ts`/`worker.ts`). Overlay : `apps/overlay/src/main/combatSim.ts` (entrée depuis la vue filtrée), worker empaqueté `simWorker.ts`. Couverture et validation sur combats réels : `docs/simulator-coverage.md`. Le test `pool.test.ts` utilise `packages/sim/dist/worker.js` : `pnpm build` avant `pnpm test`.
+
 Saison : contrat `core/src/season/module.ts` (`SeasonModule` : état propre + `reduce` + `view` avec `shownCardIds`), état retenu par l'horloge d'affichage (`Snapshot.season`). Saison 14 : `seasons/s14/src/tracker.ts` (trinkets, Dark Gifts, Activations, compteurs) + tests fair-play `tracker.test.ts`. Overlay : `apps/overlay/src/main/season.ts` (`overlayView`).
 
 Pool : `core/src/pool/pool.ts` (calcul pur, hypergéométrique), règles dans `seasons/s14/src/poolRules.ts` (sources + `verified`), catalogue `data/src/poolCatalog.ts` (pool solo HearthstoneJSON, hors Duos), cartes vues = `VisibleView.poolSightings`. Navigateur de serviteurs = même renderer, route `#browser`, fenêtre séparée. Voir `docs/adding-a-season.md`.
@@ -91,7 +93,7 @@ Pool : `core/src/pool/pool.ts` (calcul pur, hypergéométrique), règles dans `s
 
 ## Jalons
 
-M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play ✅ · M3 pool + tribus + navigateur ✅ · M4 mécaniques saisonnières ✅ · M5 simulateur · M6 SQLite + stats + replay de partie · M7 personnalisation, streamer, i18n, packaging · M8 docs.
+M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play ✅ · M3 pool + tribus + navigateur ✅ · M4 mécaniques saisonnières ✅ · M5 simulateur ✅ · M6 SQLite + stats + replay de partie · M7 personnalisation, streamer, i18n, packaging · M8 docs.
 
 Critère M1 : sur les deux fixtures, chronologie correcte (tours, combats et adversaires, tiers, places) ; partie complète → `TB_BaconShop_HERO_55`, place 3, tribus Dragon/Démons/Murloc/Mécas/Élémentaires ; log tronqué → avertissement sans crash.
 
