@@ -4,7 +4,8 @@ Ce document consigne ce que le parseur sait du format, **et d'où il le sait**. 
 
 - **F1** : `bg-solo-2026-09-21-tronque` (build 251952, solo, tronqué au tour 13) ;
 - **F2** : `bg-solo-2026-10-18-complete` (build 254477 = patch 37.0, solo, partie complète de 27 min) ;
-- **F3** : `bg-solo-2026-10-18-abandon` (build 254477, solo, abandon volontaire au tour 3).
+- **F3** : `bg-solo-2026-10-18-abandon` (build 254477, solo, abandon volontaire au tour 3) ;
+- **F4** : `bg-solo-2026-10-18-aberrations` (build 254477, solo, abandon au tour 5, tribu Aberration).
 
 Références de format : dépôt [Hearthstone-Deck-Tracker](https://github.com/HearthSim/Hearthstone-Deck-Tracker) et bibliothèque [python-hslog](https://github.com/HearthSim/python-hslog) (HearthSim, licence MIT), utilisées comme documentation. Aucun code n'en est repris.
 
@@ -116,6 +117,10 @@ Après `BACON_CURRENT_COMBAT_PLAYER_ID`, le jeu crée par `FULL_ENTITY` les copi
 
 F3 : abandon volontaire au 3e tour de recrutement. Le log ne contient **aucun** événement de fin : ni `PLAYSTATE=LOST`/`CONCEDED`, ni héros en `GRAVEYARD`, ni `STATE=COMPLETE`. Le dernier événement `GameState` date de 18:56:56 ; le fichier s'arrête à 18:57:10 au milieu d'une liste de tâches (`PowerProcessor.PrepareHistoryForCurrentTaskList` sans `EndCurrentTaskList`).
 
+Dans F3 et F4, le dernier événement d'état est `PLAYER_LEADERBOARD_PLACE=8` sur le héros local (en `PLAY`), précédé dans la même milliseconde de `GameEntity tag=4302 value=1`, un tag numérique absent de F1 et F2. Ce 8 n'est pas un classement : dans F4 le joueur était 3e juste avant (20:00:35) ; dans F3 il passait de 7 à 8.
+
+**Heuristique « abandon »** (2 exemples) : le flux se termine sans `PLAYSTATE` terminal ET le dernier événement d'état est la place 8 du héros local → `outcome: 'abandoned'`. La place 8 est retirée du joueur local (`placeBeforeAbandon` garde la précédente, à titre informatif), aucune place finale n'est retenue, et la partie sera exclue des moyennes de classement (M6). Le tag 4302 est un indice concordant, non utilisé par la règle tant qu'il n'est pas mieux établi.
+
 Règle : une partie BG commencée qui n'a reçu ni élimination ni `STATE=COMPLETE` est **« abandonnée ou interrompue »** (`outcome: 'interrupted'`, sans place finale) quand le flux s'arrête (fin du fichier rejoué, nouvelle session de jeu) ou qu'un nouveau `CREATE_GAME` arrive. Un simple silence du log ne suffit pas (le joueur peut réfléchir). Une partie tronquée (F1) finit aussi en `interrupted`, avec `truncated: true`.
 
 ### Tribus du lobby
@@ -123,6 +128,18 @@ Règle : une partie BG commencée qui n'a reçu ni élimination ni `STATE=COMPLE
 Aucune annonce au début de la partie. `BACON_SUBSET_<TRIBU>` apparaît sur les serviteurs (et sur certains héros) au fil de la partie. Le tracker compte les **cartes distinctes** (version dorée `_G` ramenée à la carte de base) par tribu, sur les serviteurs visibles (zones `PLAY` et `HAND`). F2 en fin de partie : DRAGON 23, MECH 21, MURLOC 19, DEMON 17, ELEMENTALS 17 ; puis NAGA 2, PIRATE 1, QUILLBOAR 1, UNDEAD 1 (cartes arrivées par effets). Une tribu est « identifiée » à partir de 8 cartes distinctes, parmi les 5 premières ; l'UI affiche « k/5 tribus identifiées ».
 
 Le nombre de tribus par lobby (5) et le seuil sont des paramètres (`defaultTribeOptions`), à déplacer dans les données de saison.
+
+### Aberrations et orthographe des tribus (F4)
+
+Les **Aberrations** sont un TYPE de serviteur (36.6.1), pas des anomalies (toujours absentes). Elles portent `CARDRACE=ABERRATION` et `BACON_SUBSET_ABERRATION=1`. F4 : 44 entités, cartes `BG36_098` Zoatroïde, `BG36_099` Tortionnaire de l'esprit, `BG36_100` Brise-volonté errant, `BG36_113` Sacrifice flottant, et `BGFYM_000` **C'Thun** : créé en `SETASIDE`, il entre en `PLAY` au combat 4 (affiché par le client de 20:02:38 à 20:02:49) via la « Divinité secrète » `BG_OldGod` en zone `SECRET`.
+
+Les deux familles de tags n'ont pas la même orthographe : `CARDRACE=QUILBOAR` (un L) / `BACON_SUBSET_QUILLBOAR` (deux L), `MECHANICAL` / `MECH`, `ELEMENTAL` / `ELEMENTALS`. Le tracker lit les deux et normalise vers la forme `BACON_SUBSET_` (`canonicalTribe`).
+
+Nagas : retirés du pool au patch actuel (constat de l'utilisateur), ils n'apparaissent que via des serviteurs à double type.
+
+### Décalage d'affichage des combats (F2, F4) — enjeu fair-play
+
+`GameState` reçoit le combat entier en moins d'une seconde ; le client l'anime ensuite. `PowerTaskList` suit l'animation. Mesure du `TURN` de fin de combat : écart GameState → affichage de **7,7 à 48,1 s** (F2) et de 7,9 à 30,4 s (F4) ; au début du combat l'écart est ≤ 2 s. Tout ce que le modèle déduit de `GameState` pendant un combat (PV perdus, classement, élimination, invocations) est donc connu du tracker avant d'être visible à l'écran. À corriger (voir CLAUDE.md).
 
 ### Mécaniques de saison vues (non exploitées en M1)
 

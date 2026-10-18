@@ -78,7 +78,9 @@ acceptance.test.ts    tests d'acceptation sur les deux fixtures réelles (vérit
 - PlayerID variables d'une partie à l'autre : jamais en dur. Joueur local = `GameAccountId` non nul.
 - Tags inconnus affichés en numérique (`tag=3085`) : garder le brut, jamais d'exception.
 - Place finale = dernière `PLAYER_LEADERBOARD_PLACE` du héros local à l'élimination. `PLAYSTATE=LOST` ne veut pas dire hors top 4.
-- Tribus du lobby non annoncées : déduction progressive avec niveau de confiance.
+- Tribus du lobby non annoncées : déduction progressive avec niveau de confiance. `CARDRACE` et `BACON_SUBSET_` lus tous les deux, normalisés (QUILBOAR→QUILLBOAR, MECHANICAL→MECH, ELEMENTAL→ELEMENTALS). Aberrations = type de serviteur, pas des anomalies.
+- Issues de partie : `finished`, `interrupted` (fin de flux sans fin de partie), `abandoned` (heuristique : fin de flux + dernier événement = place 8 du héros local ; la place 8 n'est jamais un classement). Exclure `abandoned`/`interrupted` des moyennes (M6).
+- **Fair-play, problème ouvert** : `GameState` connaît l'issue d'un combat 8 à 48 s avant l'animation (`PowerTaskList`). L'overlay ne doit pas montrer PV/classement/éliminations avant que le client les affiche.
 - Troncature : `Truncating log, which has reached the size limit of 10000KB` → ne jamais remettre l'état à zéro ; avertir.
 - `TURN` GameEntity impair = recrutement, pair = combat. Joueurs du lobby = entités HERO avec `PLAYER_ID` + `PLAYER_LEADERBOARD_PLACE` (copies de combat ignorées).
 - Seulement 2 entités `Player` : le local et un emplacement « dummy » renommé (`Bob le barman`, puis le nom de l'adversaire en combat, avec décalage). Adversaire = `BACON_CURRENT_COMBAT_PLAYER_ID` sur le dummy.
