@@ -1,0 +1,52 @@
+name: Release
+
+# Installeur Windows (NSIS, non signé). Sur un tag vX.Y.Z : brouillon de release GitHub avec
+# l'installeur et latest.yml (mises à jour opt-in). À la main (workflow_dispatch) : installeur de
+# test en artefact, sans release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # electron-builder télécharge lui-même l'Electron à empaqueter.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test
+      - name: Version du tag = version de l'application
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          v=$(node -p "require('./apps/overlay/package.json').version")
+          test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} ≠ version $v"; exit 1; }
+      - name: Installeur (brouillon de release)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: pnpm --filter @bgt/overlay package --publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Installeur (test)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: pnpm --filter @bgt/overlay package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bg-tracker-windows
+          path: |
+            apps/overlay/release/out/*.exe
+            apps/overlay/release/out/latest.yml
+          if-no-files-found: error
