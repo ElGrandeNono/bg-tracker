@@ -52,11 +52,26 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
 - Fenêtre transparente, sans cadre, toujours au-dessus, **click-through** (`setIgnoreMouseEvents(true, { forward: true })`), non focusable, calée sur la zone client de la fenêtre Hearthstone.
 - **Suivi de la fenêtre du jeu** par appels `user32` directs (FFI `koffi`) : `FindWindowW` (titre `Hearthstone`, classe `UnityWndClass`), `GetClientRect`, `ClientToScreen`, `IsIconic`, `GetForegroundWindow`. C'est de l'information du gestionnaire de fenêtres, pas de la mémoire du jeu. L'overlay se masque quand le jeu n'est pas au premier plan. Une première version utilisait un PowerShell masqué avec `-EncodedCommand` : Avast a mis `electron.exe` en quarantaine (`IDP.Generic`, détection comportementale). Ce schéma est proscrit.
 - **Plein écran** : impossible de distinguer exclusif et fenêtré sans bordure depuis l'extérieur ; si la fenêtre couvre l'écran et que `options.txt` contient `graphicsfullscreen=True`, l'overlay affiche un conseil (passer en fenêtré ou plein écran fenêtré).
-- **Sécurité** : `contextIsolation`, `sandbox`, pas de `nodeIntegration` ; preload à 4 canaux typés ; CSP stricte injectée au build (`default-src 'none'`, aucun script distant, `connect-src 'none'`) ; navigation, `window.open`, webviews et permissions refusés.
+- **Sécurité** : `contextIsolation`, `sandbox`, pas de `nodeIntegration` ; preload à canaux nommés et typés (`shared/payload.ts`) ; CSP stricte injectée au build (`default-src 'none'`, aucun script distant, `connect-src 'none'`) ; navigation, `window.open`, webviews et permissions refusés.
 - **Latence** : LogWatcher en polling à 100 ms + regroupement des envois à 100 ms → < 300 ms du log à l'écran.
-- **Réglages** (`overlay-settings.json` dans le dossier utilisateur) : opacité, compact, thème, échelle, position des panneaux en fraction de la fenêtre. Toujours verrouillé au démarrage.
-- **Raccourcis** : Ctrl+Maj+H afficher/masquer · Ctrl+Maj+U déverrouiller (déplacer les panneaux, la souris est alors capturée) · Ctrl+Maj+O opacité · Ctrl+Maj+C compact.
+- **Réglages** (`overlay-settings.json` dans le dossier utilisateur, fenêtre `#settings`, Ctrl+Maj+P) : langue, thème (sombre, clair, contraste élevé), opacité, taille du texte, compact, sections affichées, alertes, mode streamer, mises à jour, position des panneaux en fraction de la fenêtre. La fenêtre envoie des patchs (`bgt:update-settings`) que `applyPatch` repasse par la validation complète ; toutes les fenêtres reçoivent les réglages avec la vue. Toujours verrouillé au démarrage ; réseau désactivé par défaut (test `settings.test.ts`).
+- **i18n** : `renderer/i18n.ts`, dictionnaires `fr` (référence) et `en` du même type (une clé manquante ne compile pas), fourni par un contexte React selon `settings.language`. Les noms et textes de cartes viennent de HearthstoneJSON dans la langue choisie (`frFR`/`enUS`, `--locale` pour forcer) ; le changement de langue recharge les données. Textes du processus principal (tray, titres, boîtes de dialogue) : `main/menuStrings.ts`.
+- **Accessibilité** : thème contraste élevé (fond opaque, bordures franches, victoire/défaite en bleu/orange séparables pour les daltonismes, toujours doublés d'une lettre), taille du texte de 60 à 200 %, focus visible, `aria-live` pour les alertes.
+- **Alertes** (`renderer/alerts.ts`) : calculées dans le renderer à partir de la vue filtrée uniquement, une fois par occasion (clé partie + tour). Son : oscillateur WebAudio, aucun fichier audio.
+- **Mode streamer** (`main/streamServer.ts`) : serveur HTTP opt-in sur `127.0.0.1` (port réglable, 5280 par défaut) qui sert le renderer compilé et la vue en Server-Sent Events (`/events`) ; la page (`/?obs`) utilise `renderer/streamBridge.ts` en lecture seule. `streamPayload` expurge la vue (pseudos adverses, simulation, pool selon les réglages ; jamais d'alertes ni de mode déplacement). En-tête Host vérifié (DNS rebinding), GET uniquement, pas de sortie du dossier ; la CSP servie n'autorise que `connect-src 'self'`. Tests : `streamServer.test.ts`.
+- **Raccourcis** : Ctrl+Maj+H afficher/masquer · Ctrl+Maj+U déverrouiller (déplacer les panneaux, la souris est alors capturée) · Ctrl+Maj+O opacité · Ctrl+Maj+C compact · Ctrl+Maj+B navigateur · Ctrl+Maj+D historique · Ctrl+Maj+P réglages.
+
+## Empaquetage et mises à jour
+
+- `apps/overlay/package.mjs` : prépare `release/app` (le `dist/` déjà regroupé par esbuild/Vite, sans outil de démo ni cartes de sources, plus `koffi` et son binaire `@koromix/koffi-win32-x64`), génère l'icône (PNG dessiné par le script, aucun asset externe), puis electron-builder produit l'installeur NSIS (par utilisateur, dossier modifiable). Locales Chromium limitées à fr et en-US.
+- **Non signé** : la signature de code exige un certificat (à fournir par le mainteneur ; `win.signtoolOptions` d'electron-builder). SmartScreen avertit au premier lancement.
+- **Release** (`.github/workflows/release.yml`, `windows-latest`) : sur un tag `vX.Y.Z` (doit égaler la version de `apps/overlay/package.json`), brouillon de release GitHub avec l'installeur et `latest.yml` ; lancé à la main, installeur de test en artefact.
+- **Mises à jour** (`main/updater.ts`, electron-updater) : uniquement si l'utilisateur l'active ; lit `latest.yml` des releases GitHub, demande avant de télécharger puis avant de redémarrer.
+- Les bundles ESM portent un `createRequire` (bannière esbuild) pour les dépendances CommonJS qui appellent `require()` dynamiquement (electron-updater).
 
 ## Réseau
 
-Seul accès réseau : téléchargement des données de cartes depuis `api.hearthstonejson.com` (nécessaire, aucune donnée utilisateur envoyée). Aucune télémétrie.
+- Indispensable : téléchargement des données de cartes depuis `api.hearthstonejson.com` (aucune donnée utilisateur envoyée).
+- Optionnel, **désactivé par défaut** : vérification des mises à jour sur les releases GitHub du dépôt (`autoUpdate`).
+- Optionnel, **désactivé par défaut** : serveur du mode streamer, en écoute sur `127.0.0.1` seulement, aucune connexion sortante.
+- Aucune télémétrie.

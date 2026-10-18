@@ -1,6 +1,6 @@
 # BG Tracker — guide pour Claude
 
-Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M6 terminé → M7** (personnalisation, mode streamer, i18n, packaging, auto-update). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
+Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monorepo pnpm, licence MIT. Jalon courant : **M7 terminé → M8** (finitions, docs utilisateur et développeur, README avec captures). Dépôt : https://github.com/ElGrandeNono/bg-tracker (public, CI GitHub Actions Windows + Ubuntu).
 
 ## Commandes
 
@@ -14,6 +14,7 @@ Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monore
 | Compresser une fixture                       | `node scripts/gzip-fixture.mjs fixtures/<fichier>.log`                                                  |
 | Overlay en direct / replay / démo navigateur | `pnpm overlay` · `pnpm overlay:replay <log> --speed 10` · `pnpm overlay:demo` (UI seule, port 5199)     |
 | Capture de contrôle Electron                 | `apps/overlay`: `electron . --replay <log> --smoke <out.png>` (`BGT_DEBUG=1` pour le journal)           |
+| Installeur Windows (après `pnpm build`)      | `pnpm --filter @bgt/overlay package` (`package:dir` = appli décompressée, plus rapide)                  |
 | Replay (build puis chronologie console)      | `pnpm replay <fichier.log\|.gz\|.zip> [--speed N] [--quiet]` (`--speed 0` = instantané, 1 = temps réel) |
 
 Windows : Node et pnpm sont installés mais un shell ouvert avant l'installation n'a pas le PATH à jour (`C:\Program Files\nodejs`, `%APPDATA%\npm`).
@@ -58,6 +59,8 @@ Saison : contrat `core/src/season/module.ts` (`SeasonModule` : état propre + `r
 
 Pool : `core/src/pool/pool.ts` (calcul pur, hypergéométrique), règles dans `seasons/s14/src/poolRules.ts` (sources + `verified`), catalogue `data/src/poolCatalog.ts` (pool solo HearthstoneJSON, hors Duos), cartes vues = `VisibleView.poolSightings`. Navigateur de serviteurs = même renderer, route `#browser`, fenêtre séparée. Voir `docs/adding-a-season.md`.
 
+Personnalisation (M7) : fenêtre Réglages `renderer/Settings.tsx` (route `#settings`, Ctrl+Maj+P, patchs validés par `main/settings.ts` `applyPatch`) ; i18n `renderer/i18n.ts` (fr = référence, en du même type ; aucun texte d'interface en dur ailleurs) et `main/menuStrings.ts` ; alertes `renderer/alerts.ts` ; mode streamer `main/streamServer.ts` + `renderer/streamBridge.ts` (opt-in, 127.0.0.1) ; mises à jour `main/updater.ts` (opt-in) ; empaquetage `apps/overlay/package.mjs` et `.github/workflows/release.yml`. Démo : `?lang=en&theme=contrast` dans l'URL.
+
 `packages/data` : `loadCardDb` (HearthstoneJSON `/v1/<build>/<locale>/cards.json`, cache par build, repli `latest` puis cache périmé). `apps/overlay` : `src/main` (pipeline, `hsWindow.ts` user32 via koffi, réglages, config du jeu), `src/preload`, `src/renderer` (React), `src/shared/payload.ts` (contrat IPC), `build.mjs` (esbuild) + Vite. Détails : `docs/architecture.md`.
 
 ## Conventions
@@ -95,7 +98,7 @@ Pool : `core/src/pool/pool.ts` (calcul pur, hypergéométrique), règles dans `s
 
 ## Jalons
 
-M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play ✅ · M3 pool + tribus + navigateur ✅ · M4 mécaniques saisonnières ✅ · M5 simulateur ✅ · M6 SQLite + stats + replay de partie ✅ · M7 personnalisation, streamer, i18n, packaging · M8 docs.
+M0 scaffold/CI ✅ · M1 parseur + GameState + replay ✅ · M2 overlay minimal + filtre fair-play ✅ · M3 pool + tribus + navigateur ✅ · M4 mécaniques saisonnières ✅ · M5 simulateur ✅ · M6 SQLite + stats + replay de partie ✅ · M7 personnalisation, streamer, i18n, packaging ✅ · M8 docs.
 
 Critère M1 : sur les deux fixtures, chronologie correcte (tours, combats et adversaires, tiers, places) ; partie complète → `TB_BaconShop_HERO_55`, place 3, tribus Dragon/Démons/Murloc/Mécas/Élémentaires ; log tronqué → avertissement sans crash.
 
@@ -103,6 +106,9 @@ Critère M1 : sur les deux fixtures, chronologie correcte (tours, combats et adv
 
 - **Avast** (antivirus de l'utilisateur) a mis `electron.exe` en quarantaine (`IDP.Generic`) quand l'overlay lançait un PowerShell masqué `-EncodedCommand` + `Add-Type user32`. Ne jamais réintroduire ce schéma : user32 passe par koffi. Si `node_modules/electron/dist/electron.exe` manque : `node node_modules/electron/install.js` dans `apps/overlay` (pnpm bloque parfois le script d'installation).
 - Les binaires Electron et esbuild sont dans `onlyBuiltDependencies` (pnpm-workspace.yaml). La CI pose `ELECTRON_SKIP_BINARY_DOWNLOAD=1`.
+- `koffi` charge son binaire depuis le paquet optionnel `@koromix/koffi-win32-x64` : `package.mjs` copie les deux (asarUnpack). Ne pas « simplifier » en ne copiant que `koffi`.
+- `BGT_USER_DATA=<dossier>` : dossier de données séparé (réglages, historique, cache de cartes) pour les essais Electron, sans toucher aux réglages réels de l'utilisateur.
+- L'installeur NSIS est construit par la CI (`windows-latest`) ; en local, préférer `package:dir` (Avast de l'utilisateur, installeur non signé).
 
 ## À demander à l'utilisateur au bon moment
 

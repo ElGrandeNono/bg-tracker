@@ -4,7 +4,7 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 > **Non affilié à Blizzard Entertainment.** Hearthstone et Battlegrounds sont des marques de Blizzard Entertainment, Inc. Aucun asset Blizzard n'est inclus dans ce dépôt ni dans l'installeur : les données de cartes et les images sont téléchargées au runtime depuis [HearthstoneJSON](https://hearthstonejson.com/) et mises en cache localement.
 
-État : **M6**. Overlay en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites, mécaniques de la saison 14 (**bibelots**, **Sombres dons**, **Activations**, bonus des sorts de taverne, Divinité), **simulateur de combat** (victoire / égalité / défaite, létal, dégâts ; marqué « approximatif » quand une carte n'est pas simulée, voir [docs/simulator-coverage.md](docs/simulator-coverage.md)), **pool de serviteurs estimé** et **navigateur de serviteurs** (Ctrl+Maj+B). Rien n'est affiché avant que le jeu ne l'ait montré (les combats sont connus du log avant leur animation). Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
+État : **M7**. Overlay en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites, mécaniques de la saison 14 (**bibelots**, **Sombres dons**, **Activations**, bonus des sorts de taverne, Divinité), **simulateur de combat** (victoire / égalité / défaite, létal, dégâts ; marqué « approximatif » quand une carte n'est pas simulée, voir [docs/simulator-coverage.md](docs/simulator-coverage.md)), **pool de serviteurs estimé** et **navigateur de serviteurs** (Ctrl+Maj+B), **historique et statistiques** (Ctrl+Maj+D). Interface en **français ou anglais**, thèmes sombre, clair et **contraste élevé** (adapté au daltonisme), taille du texte réglable, sections masquables, **alertes** configurables et **mode streamer** pour OBS (Ctrl+Maj+P : réglages). Rien n'est affiché avant que le jeu ne l'ait montré (les combats sont connus du log avant leur animation). Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
 
 ## Principes
 
@@ -32,6 +32,10 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 L'application proposera de faire ces deux réglages pour vous, avec votre accord.
 
+## Installer
+
+Téléchargez `BG-Tracker-Setup-<version>.exe` depuis les [releases GitHub](https://github.com/ElGrandeNono/bg-tracker/releases) (installation par utilisateur, sans droits administrateur). L'installeur **n'est pas signé** (une signature exige un certificat de signature de code payant) : Windows SmartScreen affiche « Windows a protégé votre ordinateur » ; cliquez sur « Informations complémentaires » puis « Exécuter quand même ». Le code de l'installeur est construit par la CI publique à partir de ce dépôt (`.github/workflows/release.yml`).
+
 ## Utiliser l'overlay
 
 Le jeu doit être en mode **fenêtré** ou **plein écran fenêtré** : un overlay ne peut pas s'afficher au-dessus d'un plein écran exclusif.
@@ -48,6 +52,7 @@ pnpm overlay
 | Ctrl+Maj+C | mode compact                                                                                                          |
 | Ctrl+Maj+D | historique : statistiques, parties (MMR, notes, tags), replay tour par tour, export CSV/JSON, import des anciens logs |
 | Ctrl+Maj+B | navigateur de serviteurs (recherche, tribus du lobby, exemplaires restants, probabilités)                             |
+| Ctrl+Maj+P | réglages : langue, thème, opacité, taille, sections, alertes, mode streamer, mises à jour, à propos                   |
 
 Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fichier.log|.gz|.zip> --speed 10`.
 
@@ -55,7 +60,16 @@ Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fi
 
 **Historique** : chaque partie suivie en direct est enregistrée localement (`history.sqlite` dans le dossier de l'application). Les parties abandonnées ou interrompues sont listées mais exclues des moyennes. Le MMR n'est pas dans les logs : saisie manuelle facultative. Le bouton « Importer les anciens logs » rejoue les sessions conservées dans `Logs/` par le jeu.
 
-**Réseau** : seul accès, le téléchargement des données de cartes depuis HearthstoneJSON (mis en cache par version du jeu). Aucune télémétrie.
+**Alertes** (Réglages › Alertes) : début du tour, minuteur sous 10 secondes, triple réalisable (deux exemplaires à vous et le troisième en boutique), tribus du lobby identifiées ; son facultatif (bip synthétisé, aucun fichier audio).
+
+**Mode streamer** (Réglages › Mode streamer, désactivé par défaut) : un petit serveur local sert l'overlay à OBS. Ajoutez une « source navigateur » d'URL `http://127.0.0.1:5280/?obs` (port réglable), à la taille de votre capture du jeu. Le serveur n'écoute que sur `127.0.0.1` (jamais sur le réseau) ; options : masquer les pseudos adverses (activé par défaut), la simulation de combat, le pool. Les spectateurs voient exactement ce que vous voyez, jamais plus.
+
+**Réseau** :
+
+- Données de cartes : téléchargées depuis HearthstoneJSON (mises en cache par version du jeu et par langue). Seul accès indispensable ; aucune donnée personnelle n'est envoyée.
+- Vérification des mises à jour (**désactivée par défaut**, Réglages › Mises à jour) : interroge les releases GitHub de ce dépôt au démarrage ; rien n'est téléchargé sans votre accord.
+- Mode streamer (**désactivé par défaut**) : serveur local uniquement, aucune connexion sortante.
+- Aucune télémétrie.
 
 **Antivirus** : l'overlay suit la position de la fenêtre du jeu via les fonctions standard de Windows (`user32`). Il ne lit jamais la mémoire du jeu.
 
@@ -69,6 +83,12 @@ pnpm install
 
 ```bash
 pnpm test
+```
+
+Construire l'installeur Windows en local (après `pnpm build`) :
+
+```bash
+pnpm --filter @bgt/overlay package
 ```
 
 Voir [CLAUDE.md](CLAUDE.md) pour les commandes et conventions.
