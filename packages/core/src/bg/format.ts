@@ -47,9 +47,21 @@ export function formatEntry(bg: BgGame, e: TimelineEntry): string | undefined {
       return `${at} Éliminé, place finale ${e.place ?? '?'}`;
     case 'gameOver':
       return `${at} Fin de partie`;
+    case 'interrupted':
+      return `${at} Partie abandonnée ou interrompue : aucun événement de fin dans le log`;
     case 'truncated':
       return `${at} ⚠ Log tronqué par le jeu (ligne ${e.line}) : état possiblement incomplet`;
   }
+}
+
+function outcomeLabel(bg: BgGame): string {
+  if (bg.finalPlace !== undefined) return `place finale ${bg.finalPlace}`;
+  if (bg.outcome === 'interrupted') {
+    return bg.truncated
+      ? 'interrompue (log tronqué), place finale inconnue'
+      : 'abandonnée ou interrompue, sans place finale';
+  }
+  return bg.outcome === 'finished' ? 'terminée, place inconnue' : 'partie en cours';
 }
 
 export function formatSummary(bg: BgGame): string {
@@ -62,11 +74,13 @@ export function formatSummary(bg: BgGame): string {
     '═══ Résumé ═══',
     `Mode : ${bg.isBattlegrounds ? 'Battlegrounds' : 'autre'} · build ${bg.build ?? '?'}`,
     `Héros : ${local?.heroCardId ?? '?'}`,
-    `Place finale : ${bg.finalPlace ?? (bg.truncated ? 'inconnue (log tronqué)' : 'partie non terminée')}`,
+    `Issue : ${outcomeLabel(bg)}`,
     `Taverne : ${local?.techLevel ?? '?'} · triples : ${local?.triples ?? 0} · PV : ${remainingHealth(local) ?? '?'}`,
     `Tours : ${bg.round} · combats : ${bg.combats.length}`,
     `Tribus du lobby : ${lobby.identified.length}/${lobby.expected} identifiées — ${tribes}`,
-    'Joueurs :',
+    bg.finalPlace === undefined
+      ? 'Joueurs (classement au dernier relevé, non final) :'
+      : 'Joueurs :',
     ...Object.values(bg.players)
       .sort((a, b) => (a.place ?? 9) - (b.place ?? 9))
       .map(

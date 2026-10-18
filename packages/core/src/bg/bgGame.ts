@@ -96,13 +96,26 @@ export type TimelineEntry =
     }
   | { readonly kind: 'eliminated'; readonly timeMs: number; readonly place: number | undefined }
   | { readonly kind: 'gameOver'; readonly timeMs: number }
-  | { readonly kind: 'truncated'; readonly timeMs: number; readonly line: number };
+  | { readonly kind: 'truncated'; readonly timeMs: number; readonly line: number }
+  | { readonly kind: 'interrupted'; readonly timeMs: number };
+
+/**
+ * - `finished` : élimination du héros local ou `STATE=COMPLETE` vus dans le log ;
+ * - `interrupted` : « abandonnée ou interrompue ». Le flux s'est arrêté (fin du fichier, session
+ *   de jeu remplacée) ou une nouvelle partie a commencé sans aucun événement de fin. C'est le
+ *   cas d'un ABANDON volontaire : la fixture du 18/10 (partie courte) ne contient ni
+ *   `PLAYSTATE=LOST`/`CONCEDED`, ni mort du héros, et s'arrête au milieu d'une liste de tâches.
+ *   Jamais de place finale dans ce cas. Un simple silence du log ne suffit pas : le joueur
+ *   peut réfléchir ; seule la fin du flux ou une nouvelle partie tranche.
+ */
+export type Outcome = 'inProgress' | 'finished' | 'interrupted';
 
 export interface BgGame {
   readonly gameIndex: number;
   readonly isBattlegrounds: boolean;
   readonly build: string | undefined;
   readonly phase: Phase;
+  readonly outcome: Outcome;
   /** Valeur courante de `TURN` sur GameEntity. */
   readonly gameTurn: number;
   /** Tour de recrutement courant (1, 2, 3…). */
@@ -124,6 +137,7 @@ export const initialBgGame: BgGame = {
   isBattlegrounds: false,
   build: undefined,
   phase: 'pending',
+  outcome: 'inProgress',
   gameTurn: 0,
   round: 0,
   localPlayerId: undefined,
@@ -199,6 +213,7 @@ export function reduceBgGame(
   if (event.type === 'truncated') {
     return push({ ...bg, truncated: true }, { kind: 'truncated', timeMs: t, line: event.at.line });
   }
+  if (event.type === 'endOfStream') return markInterrupted(bg, t);
   if (event.type === 'gameInfo') {
     if (event.key === 'GameType')
       bg = { ...bg, isBattlegrounds: event.value === 'GT_BATTLEGROUNDS' };
@@ -247,7 +262,7 @@ export function reduceBgGame(
       }
     }
     if (changed('STATE') && tagOf(entity, 'STATE') === 'COMPLETE') {
-      bg = push({ ...bg, phase: 'over' }, { kind: 'gameOver', timeMs: t });
+      bg = push({ ...bg, phase: 'over', outcome: 'finished' }, { kind: 'gameOver', timeMs: t });
     }
     if (bg.phase === 'pending' && tagOf(entity, 'STEP') === 'BEGIN_MULLIGAN') {
       bg = { ...bg, phase: 'heroSelection' };
@@ -439,5 +454,17 @@ function eliminate(bg: BgGame, t: number): BgGame {
   if (bg.finalPlace !== undefined) return bg;
   const place = bg.localPlayerId === undefined ? undefined : bg.players[bg.localPlayerId]?.place;
   if (place === undefined) return bg;
-  return push({ ...bg, finalPlace: place }, { kind: 'eliminated', timeMs: t, place });
+  return push(
+    { ...bg, finalPlace: place, outcome: 'finished' },
+    { kind: 'eliminated', timeMs: t, place },
+  );
+}
+
+/**
+ * Clôt une partie BG commencée qui n'a reçu aucun événement de fin : « abandonnée ou
+ * interrompue », sans place finale. Sans effet sur une partie terminée ou jamais commencée.
+ */
+export function markInterrupted(bg: BgGame, t: number): BgGame {
+  if (!bg.isBattlegrounds || bg.outcome !== 'inProgress') return bg;
+  return push({ ...bg, outcome: 'interrupted', phase: 'over' }, { kind: 'interrupted', timeMs: t });
 }

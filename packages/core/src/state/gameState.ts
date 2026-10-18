@@ -161,6 +161,7 @@ export function reduceGameState(state: GameState, event: PowerEvent): GameState 
       return { ...state, truncated: true };
     case 'blockStart':
     case 'blockEnd':
+    case 'endOfStream':
       return state;
   }
 }
