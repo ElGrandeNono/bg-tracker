@@ -86,7 +86,7 @@ export interface VisibleLocal {
   readonly turnTimeoutSec: number | undefined;
 }
 
-export type ViewWarning = 'truncated' | 'interrupted';
+export type ViewWarning = 'truncated' | 'interrupted' | 'abandoned';
 
 export interface VisibleView {
   readonly schema: typeof VIEW_SCHEMA_VERSION;
@@ -169,6 +169,7 @@ export function buildVisibleView(bg: BgGame, state: GameState): VisibleView {
   const warnings: ViewWarning[] = [];
   if (bg.truncated) warnings.push('truncated');
   if (bg.outcome === 'interrupted') warnings.push('interrupted');
+  if (bg.outcome === 'abandoned') warnings.push('abandoned');
 
   return {
     schema: VIEW_SCHEMA_VERSION,

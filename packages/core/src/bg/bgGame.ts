@@ -11,7 +11,7 @@ import {
 import {
   emptyTribeSightings,
   recordSighting,
-  SUBSET_TAG_PREFIX,
+  tribesOfTags,
   type TribeSightings,
 } from './tribes.js';
 
@@ -125,7 +125,8 @@ export type TimelineEntry =
   | { readonly kind: 'eliminated'; readonly timeMs: number; readonly place: number | undefined }
   | { readonly kind: 'gameOver'; readonly timeMs: number }
   | { readonly kind: 'truncated'; readonly timeMs: number; readonly line: number }
-  | { readonly kind: 'interrupted'; readonly timeMs: number };
+  | { readonly kind: 'interrupted'; readonly timeMs: number }
+  | { readonly kind: 'abandoned'; readonly timeMs: number };
 
 /**
  * - `finished` : élimination du héros local ou `STATE=COMPLETE` vus dans le log ;
@@ -135,8 +136,15 @@ export type TimelineEntry =
  *   `PLAYSTATE=LOST`/`CONCEDED`, ni mort du héros, et s'arrête au milieu d'une liste de tâches.
  *   Jamais de place finale dans ce cas. Un simple silence du log ne suffit pas : le joueur
  *   peut réfléchir ; seule la fin du flux ou une nouvelle partie tranche.
+ * - `abandoned` : cas particulier du précédent, reconnu par HEURISTIQUE (2 exemples réels, les
+ *   parties courtes du 18/10/2026) : le flux se termine sans PLAYSTATE terminal ET le dernier
+ *   événement d'état est `PLAYER_LEADERBOARD_PLACE=8` sur le héros local. Ce 8 est une
+ *   conséquence de l'abandon (le joueur était 3e juste avant dans la partie aux Aberrations) :
+ *   il n'est jamais retenu comme classement. Indice concordant non utilisé par la règle : un
+ *   tag numérique `4302=1` sur GameEntity juste avant, présent seulement dans ces deux logs.
+ *   Les parties `abandoned` et `interrupted` sont exclues des moyennes de classement.
  */
-export type Outcome = 'inProgress' | 'finished' | 'interrupted';
+export type Outcome = 'inProgress' | 'finished' | 'interrupted' | 'abandoned';
 
 export interface BgGame {
   readonly gameIndex: number;
@@ -164,6 +172,10 @@ export interface BgGame {
   readonly timeline: readonly TimelineEntry[];
   /** Noms sous lesquels l'emplacement dummy apparaît hors combat (`Bob le barman`…). */
   readonly dummyIdleNames: readonly string[];
+  /** Le dernier événement d'état est la place 8 posée sur le héros local (voir `abandoned`). */
+  readonly lastEventLocalPlace8: boolean;
+  /** Dernière place réelle du joueur local avant le 8 d'abandon (information, pas un classement). */
+  readonly placeBeforeAbandon: number | undefined;
 }
 
 export const initialBgGame: BgGame = {
@@ -184,6 +196,8 @@ export const initialBgGame: BgGame = {
   truncated: false,
   timeline: [],
   dummyIdleNames: [],
+  lastEventLocalPlace8: false,
+  placeBeforeAbandon: undefined,
 };
 
 const VISIBLE_MINION_ZONES = new Set(['PLAY', 'HAND']);
@@ -274,6 +288,23 @@ export function reduceBgGame(
   }
 
   const id = touchedEntityId(next, event);
+  if (id !== undefined) {
+    const localHero = bg.localPlayerId === undefined ? undefined : bg.players[bg.localPlayerId];
+    const place8 =
+      event.type === 'tagChange' &&
+      event.tag === 'PLAYER_LEADERBOARD_PLACE' &&
+      event.value === 8 &&
+      localHero !== undefined &&
+      id === localHero.heroEntityId;
+    if (place8 !== bg.lastEventLocalPlace8) {
+      bg = {
+        ...bg,
+        lastEventLocalPlace8: place8,
+        // Mémorise la place juste avant ce 8, pour l'écarter si la partie s'avère abandonnée.
+        placeBeforeAbandon: place8 ? localHero.place : bg.placeBeforeAbandon,
+      };
+    }
+  }
   if (id === undefined) return bg;
   const entity = next.entities.get(id);
   if (entity === undefined) return bg;
@@ -368,9 +399,7 @@ export function reduceBgGame(
     bg = captureBoardMinion(bg, entity, local?.playerId, dummy?.playerId);
     const zone = tagOf(entity, 'ZONE');
     if (typeof zone === 'string' && VISIBLE_MINION_ZONES.has(zone)) {
-      const tribes = Object.keys(entity.tags)
-        .filter((k) => k.startsWith(SUBSET_TAG_PREFIX) && entity.tags[k] === 1)
-        .map((k) => k.slice(SUBSET_TAG_PREFIX.length));
+      const tribes = tribesOfTags(entity.tags);
       if (tribes.length > 0) {
         const sightings = recordSighting(bg.tribes, tribes, entity.cardId);
         if (sightings !== bg.tribes) bg = { ...bg, tribes: sightings };
@@ -551,5 +580,17 @@ function eliminate(bg: BgGame, t: number): BgGame {
  */
 export function markInterrupted(bg: BgGame, t: number): BgGame {
   if (!bg.isBattlegrounds || bg.outcome !== 'inProgress') return bg;
+  if (bg.lastEventLocalPlace8 && bg.localPlayerId !== undefined) {
+    // Abandon : le 8 final n'est pas un classement, on le retire du joueur local.
+    const local = bg.players[bg.localPlayerId];
+    const players =
+      local === undefined
+        ? bg.players
+        : { ...bg.players, [local.playerId]: { ...local, place: undefined } };
+    return push(
+      { ...bg, players, outcome: 'abandoned', phase: 'over' },
+      { kind: 'abandoned', timeMs: t },
+    );
+  }
   return push({ ...bg, outcome: 'interrupted', phase: 'over' }, { kind: 'interrupted', timeMs: t });
 }

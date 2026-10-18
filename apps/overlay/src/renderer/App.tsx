@@ -273,7 +273,9 @@ function Notices({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   if (p.view.warnings.includes('truncated')) {
     msgs.push('Log tronqué par le jeu : état possiblement incomplet.');
   }
-  if (p.view.warnings.includes('interrupted')) msgs.push('Partie abandonnée ou interrompue.');
+  if (p.view.warnings.includes('interrupted'))
+    msgs.push('Partie interrompue : aucune fin de partie dans le log.');
+  if (p.view.warnings.includes('abandoned')) msgs.push('Partie abandonnée : pas de place finale.');
   if (p.status.cardData === 'stale')
     msgs.push('Données de cartes d’un autre patch : noms possiblement inexacts.');
   if (p.status.cardData === 'error') msgs.push('Données de cartes indisponibles (hors ligne ?).');

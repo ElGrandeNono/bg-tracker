@@ -47,6 +47,8 @@ export function formatEntry(bg: BgGame, e: TimelineEntry): string | undefined {
       return `${at} Éliminé, place finale ${e.place ?? '?'}`;
     case 'gameOver':
       return `${at} Fin de partie`;
+    case 'abandoned':
+      return `${at} Partie abandonnée (fin du log sur une place 8 sans fin de partie) : place non retenue`;
     case 'interrupted':
       return `${at} Partie abandonnée ou interrompue : aucun événement de fin dans le log`;
     case 'truncated':
@@ -56,6 +58,11 @@ export function formatEntry(bg: BgGame, e: TimelineEntry): string | undefined {
 
 function outcomeLabel(bg: BgGame): string {
   if (bg.finalPlace !== undefined) return `place finale ${bg.finalPlace}`;
+  if (bg.outcome === 'abandoned') {
+    const before =
+      bg.placeBeforeAbandon === undefined ? '' : ` (${bg.placeBeforeAbandon}e juste avant)`;
+    return `abandonnée, sans place finale${before}`;
+  }
   if (bg.outcome === 'interrupted') {
     return bg.truncated
       ? 'interrompue (log tronqué), place finale inconnue'

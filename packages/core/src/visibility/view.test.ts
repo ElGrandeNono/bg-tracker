@@ -100,6 +100,7 @@ describe('filtre fair-play sur les fixtures réelles', () => {
     'bg-solo-2026-10-18-complete.Power.log.gz',
     'bg-solo-2026-09-21-tronque.Power.log.gz',
     'bg-solo-2026-10-18-abandon.Power.log.gz',
+    'bg-solo-2026-10-18-aberrations.Power.log.gz',
   ])(
     '%s : aucune carte non montrée n’atteint la vue',
     async (name) => {
