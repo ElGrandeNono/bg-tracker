@@ -18,7 +18,7 @@ export class GameRecorder {
 
   constructor(
     private readonly heroBase: (cardId: string) => string = (id) => id,
-    private sessionDate: Date | undefined = undefined,
+    private sessionDate?: Date,
   ) {}
 
   setSessionDate(d: Date | undefined): void {

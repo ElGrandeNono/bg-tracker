@@ -106,13 +106,24 @@ export class HistoryStore {
     }
   }
 
-  /** Insère une partie ; ignorée si sa clé existe déjà. Renvoie vrai si elle a été ajoutée. */
+  /**
+   * Insère une partie. Si sa clé existe déjà : une partie déjà TERMINÉE est conservée telle quelle
+   * (doublon d'import) ; une partie interrompue est complétée par la nouvelle version (ex. import
+   * pendant la partie, puis fin observée en direct). Les saisies du joueur (MMR, notes, tags) sont
+   * toujours conservées. Renvoie vrai si une ligne a été ajoutée ou complétée.
+   */
   insert(g: GameRecord): boolean {
     const res = this.db
       .prepare(
-        `INSERT OR IGNORE INTO games (key, started_at, build, mode, hero_card_id, hero_base_card_id, outcome,
+        `INSERT INTO games (key, started_at, build, mode, hero_card_id, hero_base_card_id, outcome,
            final_place, tribes, rounds, duration_ms, truncated, mmr, notes, tags, replay)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+           outcome = excluded.outcome, final_place = excluded.final_place, tribes = excluded.tribes,
+           rounds = excluded.rounds, duration_ms = excluded.duration_ms, truncated = excluded.truncated,
+           replay = excluded.replay, hero_base_card_id = excluded.hero_base_card_id
+         WHERE games.outcome <> 'finished' AND excluded.rounds >= games.rounds
+           AND (excluded.outcome <> games.outcome OR excluded.rounds > games.rounds)`,
       )
       .run(
         g.key,

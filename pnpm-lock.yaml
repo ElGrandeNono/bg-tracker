@@ -44,6 +44,9 @@ importers:
       '@bgt/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@bgt/history':
+        specifier: workspace:*
+        version: link:../../packages/history
       '@bgt/season-s14':
         specifier: workspace:*
         version: link:../../seasons/s14

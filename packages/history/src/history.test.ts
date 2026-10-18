@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { buildVisibleView, Pipeline, readLogLines } from '@bgt/core';
 import { GameRecorder } from './recorder.js';
 import { computeStats, toCsv } from './stats.js';
+import { importLogFolder } from './importer.js';
 import { HistoryStore } from './store.js';
 import type { GameRecord } from './types.js';
 
@@ -105,6 +106,19 @@ describe('HistoryStore (SQLite)', () => {
       expect(list[0]?.replay).toEqual([]); // la liste ne charge pas les replays
       const id = list.find((x) => x.finalPlace === 3)?.id ?? -1;
       expect(store.get(id)?.replay).toHaveLength(14);
+      // Une partie interrompue est complétée par une version plus avancée, saisies conservées.
+      const ab = list.find((x) => x.outcome === 'interrupted');
+      if (ab?.id !== undefined) {
+        store.update(ab.id, { notes: 'à garder' });
+        expect(
+          store.insert({ ...g('tronque'), outcome: 'finished', finalPlace: 5, rounds: 12 }),
+        ).toBe(true);
+        expect(store.get(ab.id)).toMatchObject({
+          outcome: 'finished',
+          finalPlace: 5,
+          notes: 'à garder',
+        });
+      }
       store.update(id, { mmr: 6543, notes: 'Murlocs', tags: ['test'] });
       store.close();
 
@@ -152,4 +166,47 @@ describe('statistiques', () => {
     );
     expect(csv).toContain('"avec ; point-virgule"');
   });
+});
+
+describe('import des anciens logs', () => {
+  it('importe les sessions d’un dossier Logs, exclut la session en cours et dédoublonne', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'bgt-logs-'));
+    try {
+      const { mkdir } = await import('node:fs/promises');
+      const { createGunzip } = await import('node:zlib');
+      const { createReadStream, createWriteStream } = await import('node:fs');
+      const { pipeline } = await import('node:stream/promises');
+      const sessions: [string, string][] = [
+        ['Hearthstone_2026_10_18_06_10_24', 'bg-solo-2026-10-18-complete.Power.log.gz'],
+        ['Hearthstone_2026_10_18_18_50_00', 'bg-solo-2026-10-18-abandon.Power.log.gz'],
+        ['Hearthstone_2026_10_18_19_55_00', 'bg-solo-2026-10-18-aberrations.Power.log.gz'],
+      ];
+      for (const [dir, gz] of sessions) {
+        await mkdir(join(root, dir));
+        await pipeline(
+          createReadStream(fixture(gz)),
+          createGunzip(),
+          createWriteStream(join(root, dir, 'Power.log')),
+        );
+      }
+      await mkdir(join(root, 'autre-dossier'));
+      const live = join(root, 'Hearthstone_2026_10_18_19_55_00', 'Power.log');
+      const seen: string[] = [];
+      const records = await importLogFolder(root, {
+        exclude: live,
+        onFile: (_i, _n, d) => seen.push(d),
+      });
+      expect(seen).toEqual(['Hearthstone_2026_10_18_06_10_24', 'Hearthstone_2026_10_18_18_50_00']);
+      expect(records.map((r) => r.outcome).sort()).toEqual(['abandoned', 'finished']);
+      expect(records.find((r) => r.outcome === 'finished')?.startedAt).toBe(
+        new Date(2026, 9, 18, 6, 11, 54, 532).toISOString(),
+      );
+      const store = new HistoryStore(':memory:');
+      expect(records.filter((r) => store.insert(r))).toHaveLength(2);
+      expect(records.filter((r) => store.insert(r))).toHaveLength(0); // second import : rien de neuf
+      store.close();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 120_000);
 });
