@@ -1,4 +1,4 @@
-import type { BgtBridge, OverlayPayload } from '../shared/payload.js';
+import type { BgtBridge, CatalogCard, OverlayPayload } from '../shared/payload.js';
 
 /**
  * Pont de démonstration pour le navigateur : charge `demo.json` (instantanés générés par
@@ -17,20 +17,24 @@ export function demoBridge(): BgtBridge {
     .then((r) => r.json() as Promise<OverlayPayload[]>)
     .then((f) => {
       frames = f;
-      fromHash();
+      fromQuery();
     });
-  const fromHash = (): void => {
-    const raw = location.hash.slice(1);
-    const n = raw === '' ? NaN : Number(raw);
+  // Instantané choisi par ?f=N (le hash sert à la route : #browser).
+  const fromQuery = (): void => {
+    const raw = new URLSearchParams(location.search).get('f');
+    const n = raw === null ? NaN : Number(raw);
     index = Number.isInteger(n) && n >= 0 && n < frames.length ? n : frames.length - 1;
     emit();
   };
-  window.addEventListener('hashchange', fromHash);
   window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement) return; // la recherche du navigateur garde ses flèches
     if (e.key === 'ArrowRight') index = Math.min(frames.length - 1, index + 1);
     else if (e.key === 'ArrowLeft') index = Math.max(0, index - 1);
     else return;
-    location.hash = String(index); // déclenche hashchange → emit
+    const url = new URL(location.href);
+    url.searchParams.set('f', String(index));
+    history.replaceState(null, '', url);
+    emit();
   });
   return {
     onUpdate(l) {
@@ -40,5 +44,15 @@ export function demoBridge(): BgtBridge {
     ready() {},
     saveLayout() {},
     rendered() {},
+    onCatalog(l) {
+      void fetch('./demo-catalog.json')
+        .then((r) => r.json() as Promise<CatalogCard[]>)
+        .then(l)
+        .catch(() => undefined);
+      return () => undefined;
+    },
+    openBrowser() {
+      window.open('./#browser', '_blank');
+    },
   };
 }

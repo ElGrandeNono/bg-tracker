@@ -23,15 +23,19 @@ import {
   replayFile,
   type VisibleView,
 } from '@bgt/core';
-import { loadCardDb, type CardDb } from '@bgt/data';
+import { buildPoolCatalog, loadCardDb, type CardDb } from '@bgt/data';
+import { S14_POOL_RULES } from '@bgt/season-s14';
+import type { PoolCard } from '@bgt/core';
 import {
   CHANNELS,
   type HsWindowState,
   type OverlayPayload,
   type OverlaySettings,
+  type CatalogCard,
   type OverlayStatus,
 } from '../shared/payload.js';
 import { checkGameConfig, offerConfigFixes } from './gameSetup.js';
+import { catalogCards, poolPayload } from './poolPayload.js';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
 import { loadSettings, saveSettings } from './settings.js';
 
@@ -72,6 +76,14 @@ const pipeline = new Pipeline();
 const paths = defaultGamePaths();
 
 let win: BrowserWindow | undefined;
+/** Navigateur de serviteurs (fenêtre normale, ouverte à la demande). */
+let browserWin: BrowserWindow | undefined;
+/** Fenêtres dont le renderer a signalé être prêt. */
+const readyContents = new Set<number>();
+/** Règles du pool de la saison en cours (seasons/s14). */
+const poolRules = S14_POOL_RULES;
+let poolCatalog: readonly PoolCard[] = [];
+let uiCatalog: readonly CatalogCard[] = [];
 let tray: Tray | undefined;
 let rendererReady = false;
 let status: OverlayStatus = {
@@ -112,6 +124,13 @@ async function ensureCardDb(build: string | undefined): Promise<void> {
       cacheDir: join(app.getPath('userData'), 'cards'),
     });
     cardDb = result.db;
+    poolCatalog = buildPoolCatalog(result.db);
+    uiCatalog = catalogCards(result.db, poolCatalog, poolRules);
+    for (const w of [win, browserWin]) {
+      if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
+        w.webContents.send(CHANNELS.catalog, uiCatalog);
+      }
+    }
     status = { ...status, cardData: result.stale ? 'stale' : 'ok' };
   } catch {
     status = { ...status, cardData: 'error' };
@@ -158,8 +177,13 @@ function push(): void {
     status,
     settings,
     timerEndsAt: view.phase === 'recruit' ? timerEndsAt : undefined,
+    pool: poolCatalog.length === 0 ? undefined : poolPayload(view, poolCatalog, poolRules),
   };
-  win.webContents.send(CHANNELS.update, payload);
+  for (const w of [win, browserWin]) {
+    if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
+      w.webContents.send(CHANNELS.update, payload);
+    }
+  }
   if (process.env.BGT_DEBUG === '1') {
     console.log(
       `[bgt] vue : BG=${view.isBattlegrounds} tour=${view.round} phase=${view.phase} issue=${view.outcome} joueurs=${view.players.length} fenêtre=${status.hsWindow}`,
@@ -251,6 +275,37 @@ function onHsSample(sample: HsWindowSample): void {
   schedulePush();
 }
 
+/** Navigateur de serviteurs : fenêtre classique (cadre, focus), même renderer, route #browser. */
+function openBrowser(): void {
+  if (browserWin !== undefined && !browserWin.isDestroyed()) {
+    browserWin.show();
+    browserWin.focus();
+    return;
+  }
+  const w = new BrowserWindow({
+    width: 1040,
+    height: 760,
+    title: 'BG Tracker — serviteurs',
+    autoHideMenuBar: true,
+    backgroundColor: '#12141c',
+    webPreferences: {
+      preload: join(here, '../preload/preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      spellcheck: false,
+    },
+  });
+  browserWin = w;
+  const id = w.webContents.id;
+  w.on('closed', () => {
+    readyContents.delete(id);
+    browserWin = undefined;
+  });
+  void w.loadFile(join(here, '../renderer/index.html'), { hash: 'browser' });
+}
+
 function createWindow(): BrowserWindow {
   const area = screen.getPrimaryDisplay().workArea;
   const w = new BrowserWindow({
@@ -316,6 +371,7 @@ const SHORTCUTS: readonly [string, string, () => void][] = [
       applySettings({ ...settings, compact: !settings.compact });
     },
   ],
+  ['CommandOrControl+Shift+B', 'Navigateur de serviteurs', openBrowser],
 ];
 
 function trayIcon(): Electron.NativeImage {
@@ -380,9 +436,14 @@ async function startSource(): Promise<void> {
 
 // ---------------------------------------------------------------- démarrage
 
-ipcMain.on(CHANNELS.ready, () => {
+ipcMain.on(CHANNELS.ready, (e) => {
   rendererReady = true;
+  readyContents.add(e.sender.id);
+  if (uiCatalog.length > 0) e.sender.send(CHANNELS.catalog, uiCatalog);
   push();
+});
+ipcMain.on(CHANNELS.openBrowser, () => {
+  openBrowser();
 });
 ipcMain.on(CHANNELS.saveLayout, (_e, panels: OverlaySettings['panels']) => {
   applySettings({ ...settings, panels });

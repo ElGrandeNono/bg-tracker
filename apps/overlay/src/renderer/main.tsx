@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
+import { Browser } from './Browser.js';
 import { demoBridge } from './demoBridge.js';
 import './styles.css';
 
@@ -12,7 +13,7 @@ const root = document.getElementById('root');
 if (root !== null) {
   createRoot(root).render(
     <StrictMode>
-      <App bridge={bridge} />
+      {location.hash === '#browser' ? <Browser bridge={bridge} /> : <App bridge={bridge} />}
     </StrictMode>,
   );
 }

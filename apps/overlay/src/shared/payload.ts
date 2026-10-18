@@ -1,4 +1,4 @@
-import type { VisibleView } from '@bgt/core';
+import type { Membership, PoolTierSummary, VisibleView } from '@bgt/core';
 
 /** Contrat IPC entre le processus principal et le renderer de l'overlay. */
 
@@ -7,6 +7,8 @@ export const CHANNELS = {
   ready: 'bgt:ready',
   saveLayout: 'bgt:save-layout',
   rendered: 'bgt:rendered',
+  catalog: 'bgt:catalog',
+  openBrowser: 'bgt:open-browser',
 } as const;
 
 export type HsWindowState = 'notFound' | 'ok' | 'minimized' | 'background' | 'fullscreen';
@@ -58,6 +60,35 @@ export interface OverlayPayload {
   readonly settings: OverlaySettings;
   /** Fin estimée du recrutement en cours (horloge locale, ms) ; absent si inconnue. */
   readonly timerEndsAt: number | undefined;
+  /** Pool estimé à partir de ce que le joueur a vu ; absent tant que les données manquent. */
+  readonly pool: PoolPayload | undefined;
+}
+
+export interface PoolPayload {
+  readonly tiers: readonly PoolTierSummary[];
+  readonly byTribe: Readonly<Record<string, number>>;
+  readonly lobbyComplete: boolean;
+  /** Règles dont les sources divergent (affichées comme incertaines). */
+  readonly unverifiedRules: readonly string[];
+  /** Par carte : exemplaires restants, appartenance, probabilité à la prochaine actualisation. */
+  readonly cards: Readonly<
+    Record<string, { remaining: number; membership: Membership; probability: number }>
+  >;
+}
+
+/** Fiche statique d'un serviteur du pool (envoyée une fois par build, pour le navigateur). */
+export interface CatalogCard {
+  readonly id: string;
+  readonly name: string;
+  readonly tier: number;
+  readonly tribes: readonly string[];
+  readonly allTribes: boolean;
+  readonly attack: number | undefined;
+  readonly health: number | undefined;
+  readonly mechanics: readonly string[];
+  /** Texte brut (balises retirées). */
+  readonly text: string;
+  readonly copies: number;
 }
 
 /** API exposée au renderer par le preload (`window.bgt`). */
@@ -66,4 +97,7 @@ export interface BgtBridge {
   ready(): void;
   saveLayout(panels: OverlaySettings['panels']): void;
   rendered(): void;
+  /** Fiches du pool, à chaque changement de build. */
+  onCatalog(listener: (cards: readonly CatalogCard[]) => void): () => void;
+  openBrowser(): void;
 }

@@ -24,6 +24,26 @@ export const TRIBE_LABELS: Record<string, string> = {
   UNDEAD: 'Morts-vivants',
   QUILLBOAR: 'Huranes',
   BEAST: 'Bêtes',
+  ABERRATION: 'Aberrations',
+};
+
+/** Mots-clés HearthstoneJSON (`mechanics`) proposés comme filtre dans le navigateur. */
+export const MECHANIC_LABELS: Record<string, string> = {
+  TAUNT: 'Provocation',
+  DIVINE_SHIELD: 'Bouclier divin',
+  REBORN: 'Réincarnation',
+  VENOMOUS: 'Venimeux',
+  WINDFURY: 'Furie des vents',
+  DEATHRATTLE: "Râle d'agonie",
+  STEALTH: 'Camouflage',
+  BATTLECRY: 'Cri de guerre',
+  START_OF_COMBAT: 'Début du combat',
+  AVENGE: 'Vengeance',
+  MAGNETIC: 'Magnétisme',
+  BACON_RALLY: 'Ralliement',
+  END_OF_TURN_TRIGGER: 'Fin de tour',
+  CHOOSE_ONE: 'Choix des armes',
+  DISCOVER: 'Découverte',
 };
 
 export const HS_WINDOW_MESSAGES: Partial<Record<HsWindowState, string>> = {

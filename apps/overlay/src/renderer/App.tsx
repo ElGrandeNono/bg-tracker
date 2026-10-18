@@ -220,6 +220,7 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
         ))}
       </ol>
       {!settings.compact && <Tribes view={view} />}
+      {!settings.compact && <PoolSummary p={p} />}
       {focus !== undefined && (
         <section className="board">
           <h3>
@@ -241,6 +242,27 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
         </section>
       )}
     </div>
+  );
+}
+
+/** Restants du pool aux niveaux accessibles (estimation : cartes vues uniquement). */
+function PoolSummary({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+  const pool = p.pool;
+  if (pool === undefined) return null;
+  const maxTier = Math.min(7, (p.view.local.techLevel ?? 1) + 1);
+  const tiers = pool.tiers.filter((t) => t.tier <= maxTier && t.cards > 0);
+  return (
+    <p
+      className="pool"
+      title="Exemplaires restants au plus (cartes vues retirées) · Ctrl+Maj+B : navigateur"
+    >
+      Pool{!pool.lobbyComplete && ' (lobby incertain)'} :{' '}
+      {tiers.map((t) => (
+        <span key={t.tier} className={t.verified ? '' : 'pool--unverified'}>
+          N{t.tier} <b>{Math.round((t.remaining / Math.max(1, t.total)) * 100)}%</b>{' '}
+        </span>
+      ))}
+    </p>
   );
 }
 

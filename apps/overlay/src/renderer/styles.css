@@ -223,6 +223,120 @@ small {
   color: var(--muted);
 }
 
+.pool {
+  margin: 0.3rem 0.3rem 0;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.pool b {
+  color: var(--fg);
+}
+
+.pool--unverified b::after {
+  content: '?';
+  color: var(--accent);
+}
+
+/* ---- navigateur de serviteurs (fenêtre séparée) */
+
+.browser {
+  min-height: 100%;
+  overflow: auto;
+  height: 100%;
+  background: #12141c;
+  color: var(--fg);
+  user-select: text;
+}
+
+.browser__head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  background: var(--bg-strong);
+  border-bottom: 1px solid var(--line);
+}
+
+.browser__head h1 {
+  margin: 0 0.75rem 0 0;
+  font-size: 1.15rem;
+}
+
+.browser__head input,
+.browser__head select {
+  font: inherit;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+}
+
+.browser__head input {
+  flex: 1 1 14rem;
+}
+
+.browser__head option {
+  background: #1b1e2a;
+}
+
+.browser__info,
+.browser__empty,
+.browser__foot {
+  margin: 0.5rem 1rem;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.browser__table {
+  width: calc(100% - 2rem);
+  margin: 0 1rem;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.browser__table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.browser__table td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.browser__table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.browser__table .muted {
+  color: var(--muted);
+}
+
+.browser__text {
+  color: var(--muted);
+  max-width: 28rem;
+}
+
+.browser__table tr.is-out {
+  opacity: 0.4;
+}
+
+.browser__table tr.is-possible td:nth-child(2)::after {
+  content: ' ?';
+  color: var(--accent);
+}
+
 /* ---- plateau du prochain adversaire */
 
 .board {
