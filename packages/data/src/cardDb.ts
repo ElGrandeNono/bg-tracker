@@ -22,12 +22,23 @@ export interface CardInfo {
   readonly battlegroundsPremiumDbfId: number | undefined;
   readonly battlegroundsNormalDbfId: number | undefined;
   readonly isBattlegroundsDarkGift: boolean;
+  readonly isBattlegroundsDuosExclusive: boolean;
+  /** Neutre rattaché à une tribu : présent dans le pool seulement si elle est dans le lobby. */
+  readonly battlegroundsAssociatedRaces: readonly string[];
+  readonly attack: number | undefined;
+  readonly health: number | undefined;
+  /** Mots-clés HearthstoneJSON (`TAUNT`, `DIVINE_SHIELD`, `DEATHRATTLE`, `BACON_RALLY`…). */
+  readonly mechanics: readonly string[];
+  /** Texte de la carte (balises `<b>`, `<i>` et `[x]` éventuelles), à afficher en texte brut. */
+  readonly text: string;
 }
 
 type Raw = Record<string, unknown>;
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
+const strings = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 
 /** Normalise une entrée brute ; `undefined` si elle n'a pas la forme attendue. */
 export function toCardInfo(raw: Raw): CardInfo | undefined {
@@ -53,6 +64,12 @@ export function toCardInfo(raw: Raw): CardInfo | undefined {
     battlegroundsPremiumDbfId: num(raw.battlegroundsPremiumDbfId),
     battlegroundsNormalDbfId: num(raw.battlegroundsNormalDbfId),
     isBattlegroundsDarkGift: raw.isBattlegroundsDarkGift === true,
+    isBattlegroundsDuosExclusive: raw.isBattlegroundsDuosExclusive === true,
+    battlegroundsAssociatedRaces: strings(raw.battlegroundsAssociatedRaces),
+    attack: num(raw.attack),
+    health: num(raw.health),
+    mechanics: strings(raw.mechanics),
+    text: str(raw.text) ?? '',
   };
 }
 

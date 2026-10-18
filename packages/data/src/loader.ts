@@ -5,7 +5,7 @@ import { CardDb, isBattlegroundsRelevant, toCardInfo, type CardInfo } from './ca
 /**
  * Chargement des données de cartes, versionnées par build du jeu.
  *
- * 1. cache local `<cacheDir>/<build>/<locale>.json` (sous-ensemble BG, quelques centaines de Ko) ;
+ * 1. cache local `<cacheDir>/<build>/<locale>.v<format>.json` (sous-ensemble BG, quelques centaines de Ko) ;
  * 2. sinon HearthstoneJSON `/v1/<build>/<locale>/cards.json` (endpoint par build vérifié le
  *    18/10/2026 pour 251952 et 254477), puis `/v1/latest/…` si le build n'y est pas encore ;
  * 3. hors ligne : le cache du build le plus récent disponible, signalé comme périmé.
@@ -36,8 +36,11 @@ export interface LoadResult {
 
 const DEFAULT_BASE = 'https://api.hearthstonejson.com/v1';
 
+/** Version du format du cache : à incrémenter quand `CardInfo` gagne des champs. */
+const CACHE_FORMAT = 2;
+
 const cachePath = (dir: string, build: string, locale: Locale): string =>
-  join(dir, build, `${locale}.json`);
+  join(dir, build, `${locale}.v${CACHE_FORMAT}.json`);
 
 async function readCache(dir: string, build: string, locale: Locale): Promise<CardDb | undefined> {
   try {
