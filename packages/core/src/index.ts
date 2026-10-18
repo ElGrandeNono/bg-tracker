@@ -12,6 +12,7 @@ export * from './bg/bgGame.js';
 export * from './bg/tribes.js';
 export * from './bg/format.js';
 export { Pipeline } from './pipeline.js';
+export * from './visibility/view.js';
 export { readLogLines } from './replay/readLogLines.js';
 export { replayFile, type ReplayOptions } from './replay/replay.js';
 export * from './watcher/logWatcher.js';

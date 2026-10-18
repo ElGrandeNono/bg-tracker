@@ -61,6 +61,26 @@ export interface CombatRecord {
   readonly endMs: number | undefined;
   /** L'entrée `combatStart` a été ajoutée à la chronologie. */
   readonly announced: boolean;
+  /**
+   * Plateaux tels qu'affichés au début du combat : serviteurs entrés en `PLAY` une fois
+   * l'adversaire connu, figés au premier bloc `ATTACK`. Les effets de « Début du combat »
+   * déjà résolus avant la première attaque y sont inclus.
+   */
+  readonly opponentBoard: readonly BoardMinion[];
+  readonly localBoard: readonly BoardMinion[];
+  readonly boardsLocked: boolean;
+}
+
+export interface BoardMinion {
+  readonly entityId: number;
+  readonly cardId: string;
+  readonly attack: number | undefined;
+  /** Points de vie restants (`HEALTH - DAMAGE`). */
+  readonly health: number | undefined;
+  readonly position: number | undefined;
+  readonly golden: boolean;
+  /** Tags bruts utiles au simulateur (M5) : mots-clés, etc. */
+  readonly tags: Readonly<Record<string, number | string>>;
 }
 
 export type TimelineEntry =
@@ -226,6 +246,14 @@ export function reduceBgGame(
     return bg;
   }
 
+  if (event.type === 'blockStart' && event.blockType === 'ATTACK') {
+    const last = bg.combats.at(-1);
+    if (last !== undefined && last.endMs === undefined && !last.boardsLocked) {
+      bg = { ...bg, combats: [...bg.combats.slice(0, -1), { ...last, boardsLocked: true }] };
+    }
+    return bg;
+  }
+
   const id = touchedEntityId(next, event);
   if (id === undefined) return bg;
   const entity = next.entities.get(id);
@@ -255,6 +283,9 @@ export function reduceBgGame(
           startMs: t,
           endMs: undefined,
           announced: false,
+          opponentBoard: [],
+          localBoard: [],
+          boardsLocked: false,
         };
         bg = { ...bg, phase: 'combat', combats: [...bg.combats, combat] };
       } else {
@@ -313,8 +344,9 @@ export function reduceBgGame(
     return bg;
   }
 
-  // Serviteurs visibles : tribes.
+  // Serviteurs visibles : plateaux de début de combat, puis tribus.
   if (tagOf(entity, 'CARDTYPE') === 'MINION' && entity.cardId !== '') {
+    bg = captureBoardMinion(bg, entity, local?.playerId, dummy?.playerId);
     const zone = tagOf(entity, 'ZONE');
     if (typeof zone === 'string' && VISIBLE_MINION_ZONES.has(zone)) {
       const tribes = Object.keys(entity.tags)
@@ -327,6 +359,40 @@ export function reduceBgGame(
     }
   }
   return bg;
+}
+
+function captureBoardMinion(
+  bg: BgGame,
+  minion: Entity,
+  localId: number | undefined,
+  dummyId: number | undefined,
+): BgGame {
+  const last = bg.combats.at(-1);
+  if (last === undefined || last.endMs !== undefined || last.boardsLocked) return bg;
+  if (last.opponentPlayerId === undefined) return bg;
+  const controller = numTag(minion, 'CONTROLLER');
+  const side =
+    controller === dummyId ? 'opponentBoard' : controller === localId ? 'localBoard' : undefined;
+  if (side === undefined) return bg;
+  const board = last[side].filter((m) => m.entityId !== minion.id);
+  const inPlay = tagOf(minion, 'ZONE') === 'PLAY';
+  const health = numTag(minion, 'HEALTH');
+  const next = inPlay
+    ? [
+        ...board,
+        {
+          entityId: minion.id,
+          cardId: minion.cardId,
+          attack: numTag(minion, 'ATK'),
+          health: health === undefined ? undefined : health - (numTag(minion, 'DAMAGE') ?? 0),
+          position: numTag(minion, 'ZONE_POSITION'),
+          golden: numTag(minion, 'PREMIUM') === 1 || minion.cardId.endsWith('_G'),
+          tags: minion.tags,
+        },
+      ].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    : board;
+  if (!inPlay && board.length === last[side].length) return bg;
+  return { ...bg, combats: [...bg.combats.slice(0, -1), { ...last, [side]: next }] };
 }
 
 function refreshLocalHero(bg: BgGame, state: GameState, t: number): BgGame {
