@@ -14,6 +14,22 @@ export interface SimMinionInput {
   readonly windfury?: boolean;
   readonly stealth?: boolean;
   /**
+   * Carte d'origine (sans améliorations), pour la Réincarnation : le serviteur revient avec ces
+   * caractéristiques et 1 PV (constaté dans le log : un Gardien de bronze réincarné retrouve son
+   * Bouclier divin). Absent : on réutilise l'état courant (approximation).
+   */
+  readonly base?:
+    | {
+        readonly attack: number;
+        readonly taunt: boolean;
+        readonly divineShield: boolean;
+        readonly venomous: boolean;
+        readonly windfury: boolean;
+      }
+    | undefined;
+  /** Tribus canoniques (forme `BACON_SUBSET_` : MURLOC, MECH…), pour les effets qui les ciblent. */
+  readonly tribes?: readonly string[];
+  /**
    * La carte a un effet de combat (Râle d'agonie, Début du combat, déclencheur…) que le
    * registre ne sait pas simuler : le résultat sera marqué « approximatif ».
    */

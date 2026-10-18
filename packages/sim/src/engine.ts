@@ -19,8 +19,8 @@ import type { CombatOutcome, SimInput, SimMinionInput, SimSideInput } from './ty
  * [log] plafond de dégâts lu dans le log (`BACON_COMBAT_DAMAGE_CAP`), fourni par l'appelant.
  *
  * Règles standard de Hearthstone NON vérifiées sur un log BG (voir docs/simulator-coverage.md) :
- * Bouclier divin (absorbe un coup), Réincarnation (revient avec 1 PV, à sa place, après les Râles
- * d'agonie), Camouflage (non ciblable tant qu'il n'a pas attaqué, sauf s'il ne reste que des
+ * Bouclier divin (absorbe un coup), Réincarnation (revient comme la carte d'origine avec 1 PV, à
+ * sa place, après les Râles d'agonie ; Bouclier divin d'origine retrouvé : constaté dans le log), Camouflage (non ciblable tant qu'il n'a pas attaqué, sauf s'il ne reste que des
  * cibles camouflées), ordre de résolution des morts (camp attaquant d'abord, de gauche à droite),
  * limite de 7 serviteurs.
  */
@@ -40,6 +40,8 @@ export class Minion {
   venomous: boolean;
   windfury: boolean;
   stealth: boolean;
+  readonly tribes: readonly string[];
+  readonly base: SimMinionInput['base'];
   dead = false;
 
   constructor(m: SimMinionInput) {
@@ -54,6 +56,8 @@ export class Minion {
     this.venomous = m.venomous ?? false;
     this.windfury = m.windfury ?? false;
     this.stealth = m.stealth ?? false;
+    this.tribes = m.tribes ?? [];
+    this.base = m.base;
   }
 }
 
@@ -151,14 +155,20 @@ function resolveDeaths(ctx: CombatContext, attackerSide: Side): void {
         i--;
         ctx.registry.get(m.cardId)?.deathrattle?.(ctx, side, position, m);
         if (m.reborn) {
+          // Revient comme la carte d'origine, avec 1 PV et sans Réincarnation.
+          const b = m.base;
           ctx.summon(side, position, {
             cardId: m.cardId,
-            attack: m.attack,
+            attack: b?.attack ?? m.attack,
             health: 1,
             tier: m.tier,
             golden: m.golden,
-            taunt: m.taunt,
-            windfury: m.windfury,
+            taunt: b?.taunt ?? m.taunt,
+            divineShield: b?.divineShield ?? false,
+            venomous: b?.venomous ?? false,
+            windfury: b?.windfury ?? m.windfury,
+            tribes: m.tribes,
+            base: b,
           });
         }
       }
@@ -172,10 +182,18 @@ function attackOnce(ctx: CombatContext, attackerSide: Side, attacker: Minion): v
   const target = pickTarget(defender, ctx.rng);
   if (target === undefined) return;
   attacker.stealth = false;
+  // Ralliement (« Chaque fois que ce serviteur attaque ») : avant les dégâts.
+  ctx.registry.get(attacker.cardId)?.onAttack?.(ctx, attackerSide, attacker);
   const atk = attacker.attack;
   const def = target.attack;
-  ctx.damage(target, atk, attacker);
+  const targetPosition = defender.board.indexOf(target);
+  const hit = ctx.damage(target, atk, attacker);
   ctx.damage(attacker, def, target);
+  if (hit && target.health <= 0) {
+    ctx.registry
+      .get(attacker.cardId)
+      ?.afterKill?.(ctx, attacker, defender, targetPosition, -target.health);
+  }
   resolveDeaths(ctx, attackerSide);
 }
 
