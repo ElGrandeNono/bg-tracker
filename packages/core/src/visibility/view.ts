@@ -8,6 +8,7 @@ import {
 } from '../bg/bgGame.js';
 import { estimateLobbyTribes, type LobbyTribes } from '../bg/tribes.js';
 import type { PoolSighting } from '../pool/pool.js';
+import type { SeasonViewBase } from '../season/module.js';
 import {
   dummyPlayer,
   localPlayer,
@@ -96,7 +97,7 @@ export interface VisibleLocal {
 
 export type ViewWarning = 'truncated' | 'interrupted' | 'abandoned';
 
-export interface VisibleView {
+export interface VisibleView<V extends SeasonViewBase = SeasonViewBase> {
   readonly schema: typeof VIEW_SCHEMA_VERSION;
   readonly isBattlegrounds: boolean;
   /** Seul `solo` est pris en charge ; l'UI n'affiche qu'un avertissement sinon. */
@@ -116,6 +117,8 @@ export interface VisibleView {
    * (recrutement), derniers plateaux adverses vus en combat. Base du pool tracker.
    */
   readonly poolSightings: readonly PoolSighting[];
+  /** Vue du module de saison (trinkets, dons, compteurs…), construite par lui seul. */
+  readonly season: V | undefined;
 }
 
 function toVisibleMinion(m: BoardMinion): VisibleMinion {
@@ -188,7 +191,11 @@ function poolSightings(
   return out;
 }
 
-export function buildVisibleView(bg: BgGame, state: GameState): VisibleView {
+export function buildVisibleView<V extends SeasonViewBase = SeasonViewBase>(
+  bg: BgGame,
+  state: GameState,
+  season?: V,
+): VisibleView<V> {
   const localSlot = localPlayer(state);
   const localEntity = localSlot === undefined ? undefined : state.entities.get(localSlot.entityId);
   const local = bg.localPlayerId === undefined ? undefined : bg.players[bg.localPlayerId];
@@ -256,5 +263,6 @@ export function buildVisibleView(bg: BgGame, state: GameState): VisibleView {
     tribes: estimateLobbyTribes(bg.tribes),
     warnings,
     poolSightings: poolSightings(bg, state, players),
+    season,
   };
 }

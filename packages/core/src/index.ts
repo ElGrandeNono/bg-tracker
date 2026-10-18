@@ -19,3 +19,4 @@ export { replayFile, type ReplayOptions } from './replay/replay.js';
 export * from './watcher/logWatcher.js';
 export * from './watcher/gameConfig.js';
 export * from './pool/pool.js';
+export * from './season/module.js';

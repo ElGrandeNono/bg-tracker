@@ -1,12 +1,15 @@
 import { initialBgGame, markInterrupted, reduceBgGame, type BgGame } from './bg/bgGame.js';
 import { PowerParser } from './power/parser.js';
 import type { PowerEvent } from './power/types.js';
+import type { AnySeasonModule } from './season/module.js';
 import { initialGameState, reduceGameState, type GameState } from './state/gameState.js';
 
 /** Couple état brut / modèle BG à un instant donné (immuables, donc partageables). */
 export interface Snapshot {
   readonly state: GameState;
   readonly bg: BgGame;
+  /** État opaque du module de saison (undefined sans module). */
+  readonly season: unknown;
 }
 
 /** Diagnostic de l'alignement GameState ↔ affichage du client. */
@@ -41,10 +44,16 @@ const MAX_HOLD_MS = 120_000;
  *   PowerTaskList affiche le même repère.
  */
 export class Pipeline {
+  /** @param season module de la saison en cours (seasons/sNN), optionnel. */
+  constructor(readonly season?: AnySeasonModule) {
+    this._season = season?.initial;
+  }
+
   readonly parser = new PowerParser();
   private _state: GameState = initialGameState;
   private _bg: BgGame = initialBgGame;
   private _history: readonly BgGame[] = [];
+  private _season: unknown;
   private readonly listeners = new Set<(bg: BgGame, event: PowerEvent) => void>();
 
   /** Instantanés pris avant chaque repère GameState pas encore affiché. */
@@ -62,7 +71,7 @@ export class Pipeline {
 
   /** État tel que le client l'a déjà affiché : SEULE source autorisée pour l'UI. */
   get displayed(): Snapshot {
-    return this.held[0]?.snap ?? { state: this._state, bg: this._bg };
+    return this.held[0]?.snap ?? { state: this._state, bg: this._bg, season: this._season };
   }
 
   get displayClock(): DisplayClockStatus {
@@ -106,7 +115,7 @@ export class Pipeline {
         this.held.push({
           key: event.key,
           timeMs: event.at.timeMs,
-          snap: { state: this._state, bg: this._bg },
+          snap: { state: this._state, bg: this._bg, season: this._season },
         });
       }
       return;
@@ -127,8 +136,13 @@ export class Pipeline {
       this.resetClock();
     }
     const bg = reduceBgGame(this._bg, event, prev, next);
+    const seasonBefore = this._season;
+    if (this.season !== undefined) {
+      const base = next.gameIndex !== prev.gameIndex ? this.season.initial : this._season;
+      this._season = this.season.reduce(base, event, prev, next, bg);
+    }
     this._state = next;
-    const changed = bg !== this._bg;
+    const changed = bg !== this._bg || this._season !== seasonBefore;
     this._bg = bg;
     if (event.type === 'endOfStream') {
       // Plus rien ne viendra : l'affichage ne rattrapera jamais, on libère tout.
