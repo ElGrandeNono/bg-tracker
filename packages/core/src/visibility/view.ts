@@ -117,6 +117,22 @@ export interface VisibleView<V extends SeasonViewBase = SeasonViewBase> {
    * (recrutement), derniers plateaux adverses vus en combat. Base du pool tracker.
    */
   readonly poolSightings: readonly PoolSighting[];
+  /**
+   * Plateau du joueur local tel qu'affiché : en recrutement, ses serviteurs en jeu (gauche → droite) ;
+   * en combat, le plateau figé au début du combat.
+   */
+  readonly localBoard: readonly VisibleMinion[];
+  /** Combat en cours dont les plateaux sont connus (affichés à l'écran). */
+  readonly currentCombat:
+    | {
+        readonly round: number;
+        readonly opponentPlayerId: number | undefined;
+        readonly localBoard: readonly VisibleMinion[];
+        readonly opponentBoard: readonly VisibleMinion[];
+      }
+    | undefined;
+  /** Plafond de dégâts du combat (`BACON_COMBAT_DAMAGE_CAP` si `_ENABLED=1`), sinon absent. */
+  readonly damageCap: number | undefined;
   /** Vue du module de saison (trinkets, dons, compteurs…), construite par lui seul. */
   readonly season: V | undefined;
 }
@@ -142,6 +158,37 @@ function upgradeCost(state: GameState, localId: number | undefined): number | un
     if (cost !== undefined && (best === undefined || e.id > best.id)) best = { id: e.id, cost };
   }
   return best?.cost;
+}
+
+/** Serviteurs du joueur local en jeu (recrutement) ou plateau figé du combat en cours. */
+function localBoard(bg: BgGame, state: GameState): VisibleMinion[] {
+  const last = bg.combats.at(-1);
+  if (last !== undefined && last.endMs === undefined) return last.localBoard.map(toVisibleMinion);
+  const localId = localPlayer(state)?.playerId;
+  const out: { pos: number; m: VisibleMinion }[] = [];
+  for (const e of state.entities.values()) {
+    if (e.cardId === '' || tagOf(e, 'CARDTYPE') !== 'MINION') continue;
+    if (numTag(e, 'CONTROLLER') !== localId || tagOf(e, 'ZONE') !== 'PLAY') continue;
+    const health = numTag(e, 'HEALTH');
+    out.push({
+      pos: numTag(e, 'ZONE_POSITION') ?? 0,
+      m: {
+        cardId: e.cardId,
+        attack: numTag(e, 'ATK'),
+        health: health === undefined ? undefined : health - (numTag(e, 'DAMAGE') ?? 0),
+        golden: isGolden(e),
+        keywords: KEYWORDS.filter((k) => e.tags[k] === 1),
+      },
+    });
+  }
+  return out.sort((a, b) => a.pos - b.pos).map((x) => x.m);
+}
+
+function damageCap(state: GameState): number | undefined {
+  const g = state.gameEntityId === undefined ? undefined : state.entities.get(state.gameEntityId);
+  return numTag(g, 'BACON_COMBAT_DAMAGE_CAP_ENABLED') === 1
+    ? numTag(g, 'BACON_COMBAT_DAMAGE_CAP')
+    : undefined;
 }
 
 const isGolden = (e: Entity): boolean => numTag(e, 'PREMIUM') === 1 || e.cardId.endsWith('_G');
@@ -263,6 +310,17 @@ export function buildVisibleView<V extends SeasonViewBase = SeasonViewBase>(
     tribes: estimateLobbyTribes(bg.tribes),
     warnings,
     poolSightings: poolSightings(bg, state, players),
+    localBoard: localBoard(bg, state),
+    currentCombat:
+      current !== undefined && current.endMs === undefined && current.boardsLocked && live
+        ? {
+            round: current.round,
+            opponentPlayerId: current.opponentPlayerId,
+            localBoard: current.localBoard.map(toVisibleMinion),
+            opponentBoard: current.opponentBoard.map(toVisibleMinion),
+          }
+        : undefined,
+    damageCap: damageCap(state),
     season,
   };
 }
