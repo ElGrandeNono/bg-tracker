@@ -55,6 +55,7 @@ function cardIdsIn(view: VisibleView): string[] {
     ids.push(p.heroCardId);
     for (const m of p.lastBoard?.minions ?? []) ids.push(m.cardId);
   }
+  for (const s of view.poolSightings) ids.push(s.cardId);
   return ids;
 }
 
