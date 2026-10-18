@@ -149,9 +149,14 @@ Nagas : retirés du pool au patch actuel (constat de l'utilisateur), ils n'appar
 
 Test (`displayClock.test.ts`) : sur les 4 fixtures, le `TURN` affiché ne dépasse jamais celui des lignes `PowerTaskList` brutes ; dans F2, quand GameState apprend la perte de 10 PV au combat 7, l'overlay montre encore 25.
 
-### Mécaniques de saison vues (non exploitées en M1)
+### Saison 14 : trinkets, Dark Gifts, Activation, compteurs (F1, F2, F4)
 
-`BACON_TRINKETS_ACTIVE`, `BACON_DARK_GIFTS_ACTIVE` (GameEntity, à la création), `BACON_GLOBAL_OLD_GOD_DBID` (F2), entités `CARDTYPE=BATTLEGROUND_TRINKET` (`BG30_Trinket_1st`/`2nd`), `BACON_TURNS_LEFT_TO_DISCOVER_TRINKET`, `BG36_MidGameEffect_*` (source des choix Dark Gift). Piège : `BACON_DUOS_PUNISH_LEAVERS=1` est présent en **solo**.
+Activées par `BACON_TRINKETS_ACTIVE=1` et `BACON_DARK_GIFTS_ACTIVE=1` sur GameEntity à la création. Piège : `BACON_DUOS_PUNISH_LEAVERS=1` est présent en **solo**.
+
+- **Trinkets** : deux entités `CARDTYPE=BATTLEGROUND_TRINKET` du joueur local, en `PLAY`, cardIds `BG30_Trinket_1st` (mineur) et `BG30_Trinket_2nd` (majeur), avec `BACON_TURNS_LEFT_TO_DISCOVER_TRINKET` (5 et 8 au départ, décompté chaque tour). Au choix (`DebugPrintEntityChoices`, 4 options en `SETASIDE`), l'entité emplacement est transformée en trinket choisi (`BACON_TRINKET=1`). F2 : Portrait de conque (`BG35_MagicItem_305`, tour 6), Boussole colorée (`BG30_MagicItem_426t`, tour 9).
+- **Dark Gifts** : bouton `BG36_Button_DarkGift` (`COST=3`, `EXHAUSTED`, `BACON_DARK_GIFT_PRESSABLE_VFX=1` quand il est utilisable). Un clic crée `BG36_MidGameEffect_010` (« Sombre don des champs de bataille ») qui propose 3 serviteurs ; chacun porte `DARK_GIFT_ENTITY` = l'entité « don » (sort `BG36_MidGameEffect_000t…` : Dorure, Bouclier robuste, Cicatrices de guerre…) et `HAS_DARK_GIFT=1`. Le serviteur choisi passe de `SETASIDE` à `HAND`. F2 : 3 dons (tours 4, 7 et 10), F4 : 2, F1 : 1. Le bouton n'est utilisable qu'à partir du tour 3, une fois par tour (vérifié sur F2, conforme aux notes 36.2 ; 3 utilisations maximum par partie selon ces notes).
+- **Activation** : bloc `BLOCK_START BlockType=PLAY` sur un serviteur du joueur local DÉJÀ en `PLAY`, avec dépense d'or (`RESOURCES_USED`). F2 : 9 (Fugitif des égouts `BG36_700` ×6, Garde océanique `BG36_701` ×3). Le coût figure dans le texte de la carte (« Activation (n) ») ; aucun tag dédié n'a été identifié (le tag numérique 1196, posé juste avant, concerne toutes sortes de serviteurs).
+- **Compteurs nommés** sur le joueur local : `TAVERN_SPELL_ATTACK_INCREASE` / `TAVERN_SPELL_HEALTH_INCREASE` (F2 : +8/+8), `NUM_SPELLS_PLAYED_THIS_GAME` (F2 : 53), `BACON_PLAYER_EXTRA_GOLD_NEXT_TURN`, `BACON_OLD_GOD_ATTACK` / `BACON_OLD_GOD_HEALTH` (F4 : C'Thun 5/3, identique à son invocation). Aucun compteur de gemmes de sang ni de buff d'Élémentaires n'apparaît dans ces parties : non implémentés.
 
 ### Héros
 

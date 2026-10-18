@@ -4,7 +4,7 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 > **Non affilié à Blizzard Entertainment.** Hearthstone et Battlegrounds sont des marques de Blizzard Entertainment, Inc. Aucun asset Blizzard n'est inclus dans ce dépôt ni dans l'installeur : les données de cartes et les images sont téléchargées au runtime depuis [HearthstoneJSON](https://hearthstonejson.com/) et mises en cache localement.
 
-État : **M3**. Overlay en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites, **pool de serviteurs estimé** et **navigateur de serviteurs** (Ctrl+Maj+B). Rien n'est affiché avant que le jeu ne l'ait montré (les combats sont connus du log avant leur animation). Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
+État : **M4**. Overlay en jeu (Battlegrounds **solo** uniquement ; le Duos affiche un avertissement) : tour, taverne et coût d'amélioration, or, minuteur, PV, triples, classement des 8 joueurs, prochain adversaire et son dernier plateau vu, tribus du lobby déduites, mécaniques de la saison 14 (**bibelots**, **Sombres dons**, **Activations**, bonus des sorts de taverne, Divinité), **pool de serviteurs estimé** et **navigateur de serviteurs** (Ctrl+Maj+B). Rien n'est affiché avant que le jeu ne l'ait montré (les combats sont connus du log avant leur animation). Architecture : [docs/architecture.md](docs/architecture.md) ; format du log : [docs/log-format.md](docs/log-format.md).
 
 ## Principes
 

@@ -4,6 +4,18 @@ Battlegrounds change de saison tous les 3 à 4 mois (nouveaux mots-clés, rotati
 
 ## Ce qu'un module de saison fournit aujourd'hui
 
+### Mécaniques : `SeasonModule`
+
+`seasons/s14/src/tracker.ts` exporte `S14_SEASON`, un `SeasonModule` (contrat dans `packages/core/src/season/module.ts`) :
+
+- `initial` / `reduce(state, event, prev, next, bg)` : état propre à la saison (ex. Dark Gifts proposés et pris, Activations), mis à jour à chaque événement Power. Le pipeline le retient avec le reste par l'horloge d'affichage.
+- `view(state, bg, game)` : vue de saison, UNIQUEMENT ce que le joueur local voit, avec `shownCardIds` (toutes les cartes citées).
+- Test obligatoire (`tracker.test.ts`) : faits mesurés sur des fixtures réelles, et fair-play (oracle indépendant : chaque carte de `shownCardIds` doit avoir été montrée).
+
+L'overlay l'utilise via `apps/overlay/src/main/season.ts` (`currentSeason`, `overlayView`) ; le panneau de saison est dans `apps/overlay/src/renderer/App.tsx` (`SeasonPanel`).
+
+### Règles du pool : `PoolRules`
+
 `seasons/s14/src/poolRules.ts` exporte un `PoolRules` (type défini dans `packages/core/src/pool/pool.ts`) :
 
 | Champ                            | Rôle                                                        | Saison 14                                                           |
@@ -24,7 +36,8 @@ Chaque valeur cite sa source en commentaire. Une valeur dont les sources diverge
 3. Mettre à jour `poolRules.ts` (sources datées) et `poolRules.test.ts` sur une fixture de la nouvelle saison.
 4. Nouveaux tags (`BACON_*`) : les relever dans le log réel et les documenter dans `docs/log-format.md` avant d'écrire la moindre logique. Un tag inconnu reste toujours accepté tel quel par le parseur.
 5. Nouvelle tribu : vérifier ses deux orthographes (`CARDRACE` et `BACON_SUBSET_`) dans le log et compléter `canonicalTribe` (`packages/core/src/bg/tribes.ts`) si elles diffèrent ; ajouter son libellé dans `apps/overlay/src/renderer/strings.ts`.
-6. Brancher le module dans l'application (`apps/overlay/src/main/main.ts`, constante `poolRules`). Le choix automatique de la saison selon le build est prévu pour M4.
+6. Écrire `tracker.ts` (mécaniques) et son test sur une fixture de la saison ; adapter `SeasonPanel` si la vue change de forme.
+7. Brancher le module dans `apps/overlay/src/main/season.ts`. Le choix automatique de la saison selon le build est prévu pour M4.
 
 ## Ce qui n'est PAS saisonnier
 
