@@ -44,6 +44,9 @@ importers:
       '@bgt/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@bgt/season-s14':
+        specifier: workspace:*
+        version: link:../../seasons/s14
       koffi:
         specifier: 3.3.3
         version: 3.3.3
@@ -79,11 +82,19 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3
 
-  packages/data: {}
+  packages/data:
+    dependencies:
+      '@bgt/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/sim: {}
 
-  seasons/s14: {}
+  seasons/s14:
+    dependencies:
+      '@bgt/core':
+        specifier: workspace:*
+        version: link:../../packages/core
 
 packages:
 
