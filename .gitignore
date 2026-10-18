@@ -21,3 +21,6 @@ Thumbs.db
 # Overlay : cache de cartes et instantanés de démo (générés)
 apps/overlay/.cache/
 apps/overlay/src/renderer/public/
+
+# Fichiers déposés par l'utilisateur (originaux) : seules les copies renommées .gz sont versionnées
+fixtures/Power.*
