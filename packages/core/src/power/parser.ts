@@ -5,6 +5,7 @@ import {
   type LogLine,
   type StructuredLine,
 } from '../log/line.js';
+import { displayMarkerOf } from './markers.js';
 import type { EntityRef, EventPosition, PowerEvent, TagValue } from './types.js';
 
 /**
@@ -125,6 +126,16 @@ export class PowerParser {
       out.push({ type: 'truncated', at });
       return out;
     }
+    // PowerTaskList : uniquement les repères d'affichage (horloge), jamais ses données.
+    if (
+      line.kind === 'log' &&
+      line.source === 'PowerTaskList' &&
+      line.method === 'DebugPrintPower'
+    ) {
+      const key = displayMarkerOf(line.body);
+      if (key !== undefined) out.push({ type: 'displayMarker', at, key });
+      return out;
+    }
     if (!isGameStateLine(line)) return out;
 
     if (line.method === 'DebugPrintGame') {
@@ -145,6 +156,9 @@ export class PowerParser {
       return out;
     }
     this.flushInto(out);
+    // Repère émis AVANT la commande : l'instantané pris dessus est l'état juste avant elle.
+    const key = displayMarkerOf(body);
+    if (key !== undefined) out.push({ type: 'stateMarker', at, key });
     this.parseCommand(body, at, out, text);
     return out;
   }

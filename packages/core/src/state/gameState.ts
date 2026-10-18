@@ -162,6 +162,8 @@ export function reduceGameState(state: GameState, event: PowerEvent): GameState 
     case 'blockStart':
     case 'blockEnd':
     case 'endOfStream':
+    case 'stateMarker':
+    case 'displayMarker':
       return state;
   }
 }

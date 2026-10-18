@@ -70,6 +70,10 @@ export type PowerEvent =
   /** Le jeu a tronqué le fichier (limite de taille atteinte). */
   | (Base & { readonly type: 'truncated' })
   /** Plus rien ne viendra de ce flux (fin du fichier rejoué, ou session de jeu remplacée). */
-  | (Base & { readonly type: 'endOfStream' });
+  | (Base & { readonly type: 'endOfStream' })
+  /** Repère d'affichage atteint par GameState (voir power/markers.ts). */
+  | (Base & { readonly type: 'stateMarker'; readonly key: string })
+  /** Le client (PowerTaskList) a affiché ce repère : il rattrape GameState. */
+  | (Base & { readonly type: 'displayMarker'; readonly key: string });
 
 export type PowerEventType = PowerEvent['type'];
