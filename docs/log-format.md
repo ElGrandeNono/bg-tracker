@@ -3,7 +3,8 @@
 Ce document consigne ce que le parseur sait du format, **et d'où il le sait**. Sauf mention contraire, chaque point a été observé dans les deux fixtures réelles anonymisées (`fixtures/README.md`) :
 
 - **F1** : `bg-solo-2026-09-21-tronque` (build 251952, solo, tronqué au tour 13) ;
-- **F2** : `bg-solo-2026-10-18-complete` (build 254477 = patch 37.0, solo, partie complète de 27 min).
+- **F2** : `bg-solo-2026-10-18-complete` (build 254477 = patch 37.0, solo, partie complète de 27 min) ;
+- **F3** : `bg-solo-2026-10-18-abandon` (build 254477, solo, abandon volontaire au tour 3).
 
 Références de format : dépôt [Hearthstone-Deck-Tracker](https://github.com/HearthSim/Hearthstone-Deck-Tracker) et bibliothèque [python-hslog](https://github.com/HearthSim/python-hslog) (HearthSim, licence MIT), utilisées comme documentation. Aucun code n'en est repris.
 
@@ -19,6 +20,7 @@ D 06:11:54.5321202 GameState.DebugPrintPower() -     TAG_CHANGE Entity=4 tag=STA
 - Niveau (`D`, `W`), heure locale `hh:mm:ss.fffffff` **sans date** : la date se lit dans le nom du dossier `Logs/Hearthstone_AAAA_MM_JJ_hh_mm_ss/` (`sessionDate()`). Le replay traite un recul de plus de 12 h comme un passage à minuit.
 - `<Source>.<Méthode>() - ` puis le message ; l'indentation du message reflète l'imbrication des blocs.
 - Lignes hors format : `Truncating log, which has reached the size limit of 10000KB` (F1, ligne 75 640), lignes de `=`. Le parseur les reçoit en `kind: 'raw'`.
+- **Un nom d'entité peut contenir un saut de ligne** (F3, 134 occurrences, familier cosmétique `PET_9_4`) : `…Entity=[entityName=Jeunemort` puis, sur la ligne suivante sans préfixe, `le Brise-monde id=156 zone=COSMETIC … player=9] tag=4901 value=0`. Le parseur recolle une ligne `GameState` dont un crochet reste ouvert avec les lignes brutes suivantes (4 au plus, jamais une ligne de troncature).
 
 Code : `packages/core/src/log/line.ts`.
 
@@ -41,7 +43,7 @@ Autres sources présentes, non exploitées en M1 : `GameState.DebugPrintOptions`
 | `BLOCK_START BlockType=B Entity=<réf> …` / `BLOCK_END`                 | **non équilibrés** (F2 : 4 687 starts, 4 559 ends) : on ne s'appuie pas sur l'imbrication                                                    | `blockStart` / `blockEnd`            |
 | `META_DATA`, `Info[i] =`, `Source =`, `Targets`, `SUB_SPELL_START/END` | métadonnées d'historique et effets visuels                                                                                                   | ignorées                             |
 
-Une ligne `GameState.DebugPrintPower` inconnue est comptée dans `parser.diagnostics` (avec des exemples) puis ignorée, jamais fatale. F1 et F2 : 0 ligne non reconnue.
+Une ligne `GameState.DebugPrintPower` inconnue est comptée dans `parser.diagnostics` (avec des exemples) puis ignorée, jamais fatale. F1, F2 et F3 : 0 ligne non reconnue.
 
 ### Références d'entité (`Entity=…`)
 
@@ -96,6 +98,12 @@ Les héros des 7 autres joueurs sont visibles en jeu (classement) : les afficher
 - Place finale = dernière `PLAYER_LEADERBOARD_PLACE` du héros local à l'élimination. Elle varie souvent pendant la partie (5, 6, 5, 6 en quelques secondes) : jamais présentée comme finale avant l'élimination. F2 : 3, conforme à la réalité.
 - Le log continue ~40 s après la mort du héros et ne couvre pas la fin de partie des autres joueurs.
 
+### Abandon
+
+F3 : abandon volontaire au 3e tour de recrutement. Le log ne contient **aucun** événement de fin : ni `PLAYSTATE=LOST`/`CONCEDED`, ni héros en `GRAVEYARD`, ni `STATE=COMPLETE`. Le dernier événement `GameState` date de 18:56:56 ; le fichier s'arrête à 18:57:10 au milieu d'une liste de tâches (`PowerProcessor.PrepareHistoryForCurrentTaskList` sans `EndCurrentTaskList`).
+
+Règle : une partie BG commencée qui n'a reçu ni élimination ni `STATE=COMPLETE` est **« abandonnée ou interrompue »** (`outcome: 'interrupted'`, sans place finale) quand le flux s'arrête (fin du fichier rejoué, nouvelle session de jeu) ou qu'un nouveau `CREATE_GAME` arrive. Un simple silence du log ne suffit pas (le joueur peut réfléchir). Une partie tronquée (F1) finit aussi en `interrupted`, avec `truncated: true`.
+
 ### Tribus du lobby
 
 Aucune annonce au début de la partie. `BACON_SUBSET_<TRIBU>` apparaît sur les serviteurs (et sur certains héros) au fil de la partie. Le tracker compte les **cartes distinctes** (version dorée `_G` ramenée à la carte de base) par tribu, sur les serviteurs visibles (zones `PLAY` et `HAND`). F2 en fin de partie : DRAGON 23, MECH 21, MURLOC 19, DEMON 17, ELEMENTALS 17 ; puis NAGA 2, PIRATE 1, QUILLBOAR 1, UNDEAD 1 (cartes arrivées par effets). Une tribu est « identifiée » à partir de 8 cartes distinctes, parmi les 5 premières ; l'UI affiche « k/5 tribus identifiées ».
@@ -117,7 +125,7 @@ Sans `client.config` → `[Log] FileSizeLimit.Int=-1`, le jeu s'arrête vers 10 
 ## Inconnues (demander un log réel avant d'implémenter)
 
 - Mode Duos (critère de détection fiable, partenaire).
-- Partie courte / abandon (`PLAYSTATE=CONCEDED` ?), victoire en 1re place.
+- Victoire en 1re place ; défaite rapide (élimination en début de partie, a priori comme F2).
 - Reconnexion en cours de partie.
 - Quêtes, anomalies.
 - Aberrations / Divinités (patch 36.6.1) : aucun tag nommé dans F2 ; `BACON_GLOBAL_OLD_GOD_DBID` est un candidat.

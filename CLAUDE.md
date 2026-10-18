@@ -87,6 +87,6 @@ Critère M1 : sur les deux fixtures, chronologie correcte (tours, combats et adv
 
 ## À demander à l'utilisateur au bon moment
 
-- Fixture n°3 (partie solo courte / abandon) : demandée en fin de M1, pas encore reçue.
+- Fixture n°3 reçue (abandon, `bg-solo-2026-10-18-abandon`). Écart à lui signaler : il a mesuré « taverne 2 », le log montre le héros local à 1.
 - Avant M4 : Aberrations / Naga présents dans ses parties actuelles ? (36.6.1 a ajouté les Aberrations et retiré les Naga ; la partie du 18/10 montre des Naga.)
 - Avant le mode Duos : fixture n°4.
