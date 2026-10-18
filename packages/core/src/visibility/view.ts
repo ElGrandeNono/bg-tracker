@@ -2,6 +2,7 @@ import {
   remainingHealth,
   type BgGame,
   type BoardMinion,
+  type GameMode,
   type Outcome,
   type Phase,
 } from '../bg/bgGame.js';
@@ -90,6 +91,8 @@ export type ViewWarning = 'truncated' | 'interrupted';
 export interface VisibleView {
   readonly schema: typeof VIEW_SCHEMA_VERSION;
   readonly isBattlegrounds: boolean;
+  /** Seul `solo` est pris en charge ; l'UI n'affiche qu'un avertissement sinon. */
+  readonly mode: GameMode;
   readonly build: string | undefined;
   readonly phase: Phase;
   readonly outcome: Outcome;
@@ -130,7 +133,10 @@ export function buildVisibleView(bg: BgGame, state: GameState): VisibleView {
   const localEntity = localSlot === undefined ? undefined : state.entities.get(localSlot.entityId);
   const local = bg.localPlayerId === undefined ? undefined : bg.players[bg.localPlayerId];
   const current = bg.combats.at(-1);
-  const currentOpponent = current?.endMs === undefined ? current?.opponentPlayerId : undefined;
+  // Partie close : plus d’dversaire « en cours » ni de « prochain » (le combat fatal ne se clôt pas).
+  const live = bg.outcome === 'inProgress';
+  const currentOpponent =
+    live && current?.endMs === undefined ? current?.opponentPlayerId : undefined;
 
   const resources = numTag(localEntity, 'RESOURCES');
   const used = numTag(localEntity, 'RESOURCES_USED') ?? 0;
@@ -149,7 +155,7 @@ export function buildVisibleView(bg: BgGame, state: GameState): VisibleView {
         triples: p.triples,
         health: remainingHealth(p),
         armor: p.armor,
-        isNextOpponent: !p.isLocal && bg.nextOpponentPlayerId === p.playerId,
+        isNextOpponent: live && !p.isLocal && bg.nextOpponentPlayerId === p.playerId,
         isCurrentOpponent: !p.isLocal && currentOpponent === p.playerId,
         timesFaced: faced.filter((c) => c.endMs !== undefined).length,
         lastBoard:
@@ -167,6 +173,7 @@ export function buildVisibleView(bg: BgGame, state: GameState): VisibleView {
   return {
     schema: VIEW_SCHEMA_VERSION,
     isBattlegrounds: bg.isBattlegrounds,
+    mode: bg.mode,
     build: bg.build,
     phase: bg.phase,
     outcome: bg.outcome,

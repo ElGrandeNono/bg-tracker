@@ -32,6 +32,14 @@ import {
  *   `PLAYSTATE=LOST` est reçu même dans le top 4 : il ne sert qu'à dater l'élimination.
  */
 
+export type GameMode = 'solo' | 'duos' | 'unknown';
+
+export function gameModeOf(gameType: string): GameMode {
+  if (gameType === 'GT_BATTLEGROUNDS') return 'solo';
+  if (gameType === 'GT_BATTLEGROUNDS_DUO') return 'duos';
+  return 'unknown';
+}
+
 export type Phase = 'pending' | 'heroSelection' | 'recruit' | 'combat' | 'over';
 
 export interface BgPlayer {
@@ -133,6 +141,12 @@ export type Outcome = 'inProgress' | 'finished' | 'interrupted';
 export interface BgGame {
   readonly gameIndex: number;
   readonly isBattlegrounds: boolean;
+  /**
+   * `GameType` de l'en-tête : `GT_BATTLEGROUNDS` = solo (vérifié sur 3 fixtures),
+   * `GT_BATTLEGROUNDS_DUO` = Duos (vu dans un log réel de l'utilisateur, 18/10/2026). Seul le solo
+   * est pris en charge ; tout autre type BG est `unknown`, jamais traité comme du solo.
+   */
+  readonly mode: GameMode;
   readonly build: string | undefined;
   readonly phase: Phase;
   readonly outcome: Outcome;
@@ -155,6 +169,7 @@ export interface BgGame {
 export const initialBgGame: BgGame = {
   gameIndex: 0,
   isBattlegrounds: false,
+  mode: 'unknown',
   build: undefined,
   phase: 'pending',
   outcome: 'inProgress',
@@ -236,7 +251,11 @@ export function reduceBgGame(
   if (event.type === 'endOfStream') return markInterrupted(bg, t);
   if (event.type === 'gameInfo') {
     if (event.key === 'GameType')
-      bg = { ...bg, isBattlegrounds: event.value === 'GT_BATTLEGROUNDS' };
+      bg = {
+        ...bg,
+        isBattlegrounds: event.value.startsWith('GT_BATTLEGROUNDS'),
+        mode: gameModeOf(event.value),
+      };
     if (event.key === 'BuildNumber') {
       bg = push(
         { ...bg, build: event.value },

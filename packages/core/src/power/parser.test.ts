@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseLine } from '../log/line.js';
+import { gameModeOf } from '../bg/bgGame.js';
 import { Pipeline } from '../pipeline.js';
 import { parseEntityRef, PowerParser } from './parser.js';
 
@@ -101,6 +102,15 @@ describe('PowerParser (synthetic)', () => {
     ];
     for (const j of junk) expect(() => p.feed(j)).not.toThrow();
     expect(p.diagnostics.unrecognized).toBeGreaterThan(0);
+  });
+});
+
+describe('gameModeOf', () => {
+  it('ne traite comme solo que GT_BATTLEGROUNDS', () => {
+    expect(gameModeOf('GT_BATTLEGROUNDS')).toBe('solo');
+    // Vu dans un log réel de l'utilisateur (18/10/2026), pas encore en fixture.
+    expect(gameModeOf('GT_BATTLEGROUNDS_DUO')).toBe('duos');
+    expect(gameModeOf('GT_BATTLEGROUNDS_FRIENDLY')).toBe('unknown');
   });
 });
 

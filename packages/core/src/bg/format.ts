@@ -72,7 +72,7 @@ export function formatSummary(bg: BgGame): string {
     .join(', ');
   const lines = [
     '═══ Résumé ═══',
-    `Mode : ${bg.isBattlegrounds ? 'Battlegrounds' : 'autre'} · build ${bg.build ?? '?'}`,
+    `Mode : ${bg.isBattlegrounds ? `Battlegrounds ${bg.mode}` : 'autre'} · build ${bg.build ?? '?'}`,
     `Héros : ${local?.heroCardId ?? '?'}`,
     `Issue : ${outcomeLabel(bg)}`,
     `Taverne : ${local?.techLevel ?? '?'} · triples : ${local?.triples ?? 0} · PV : ${remainingHealth(local) ?? '?'}`,

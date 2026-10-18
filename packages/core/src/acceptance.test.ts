@@ -28,6 +28,7 @@ describe('partie complète du 18/10/2026 (build 254477)', () => {
   it('reconnaît une partie BG solo du bon build', () => {
     expect(p.bg.isBattlegrounds).toBe(true);
     expect(p.bg.build).toBe('254477');
+    expect(p.bg.mode).toBe('solo');
     expect(p.bg.truncated).toBe(false);
   });
 
