@@ -1,0 +1,18 @@
+{
+  "name": "@bgt/data",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Chargement et cache des données HearthstoneJSON, détection de changement de build.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

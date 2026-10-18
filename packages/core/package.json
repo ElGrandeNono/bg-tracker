@@ -1,0 +1,18 @@
+{
+  "name": "@bgt/core",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Parseur de Power.log, état de jeu et filtre fair-play. Pur TypeScript, sans dépendance UI.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}
