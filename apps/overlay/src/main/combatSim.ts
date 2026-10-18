@@ -1,4 +1,4 @@
-import type { VisibleMinion } from '@bgt/core';
+import { canonicalTribe, type VisibleMinion } from '@bgt/core';
 import type { CardDb } from '@bgt/data';
 import { effectStatus, type SimInput, type SimMinionInput } from '@bgt/sim';
 import type { OverlayView } from './season.js';
@@ -18,11 +18,39 @@ export interface SimRequest {
   readonly boardRound: number;
 }
 
-function toSim(m: VisibleMinion, db: CardDb | undefined): SimMinionInput {
-  const card = db?.normalVersion(m.cardId) ?? db?.byId(m.cardId);
-  const status = effectStatus(m.cardId, db?.byId(m.cardId)?.mechanics ?? card?.mechanics);
+/** Carte d'origine (dorée si le serviteur l'est) pour la Réincarnation. */
+function baseOf(db: CardDb | undefined, m: VisibleMinion): SimMinionInput['base'] {
+  const card = db?.byId(m.cardId);
+  if (card?.attack === undefined) return undefined;
+  const has = (k: string): boolean => card.mechanics.includes(k);
   return {
-    cardId: m.cardId,
+    attack: card.attack,
+    taunt: has('TAUNT'),
+    divineShield: has('DIVINE_SHIELD'),
+    venomous: has('VENOMOUS'),
+    windfury: has('WINDFURY'),
+  };
+}
+
+/**
+ * `socApplied` : le plateau a été figé après les « Début du combat » (plateaux de combat et derniers
+ * plateaux adverses vus) ; faux pour ton plateau de recrutement.
+ */
+function toSim(m: VisibleMinion, db: CardDb | undefined, socApplied: boolean): SimMinionInput {
+  // Les effets sont indexés par la version normale ; le doré est porté par `golden`.
+  const card = db?.normalVersion(m.cardId) ?? db?.byId(m.cardId);
+  const status = effectStatus(
+    card?.id ?? m.cardId,
+    db?.byId(m.cardId)?.mechanics ?? card?.mechanics,
+    {
+      golden: m.golden,
+      startOfCombatApplied: socApplied,
+    },
+  );
+  return {
+    cardId: card?.id ?? m.cardId,
+    tribes: (card?.races ?? []).map(canonicalTribe),
+    base: baseOf(db, m),
     attack: m.attack ?? 0,
     health: m.health ?? 1,
     tier: card?.techLevel ?? 1,
@@ -62,12 +90,12 @@ export function buildSimRequest(view: OverlayView, db: CardDb | undefined): SimR
     boardRound: cc?.round ?? opponent.lastBoard?.round ?? view.round,
     input: {
       a: {
-        minions: localMinions.map((m) => toSim(m, db)),
+        minions: localMinions.map((m) => toSim(m, db, cc !== undefined)),
         tavernTier: view.local.techLevel ?? 1,
         heroHealth: hp(local),
       },
       b: {
-        minions: oppMinions.map((m) => toSim(m, db)),
+        minions: oppMinions.map((m) => toSim(m, db, true)),
         tavernTier: opponent.techLevel ?? 1,
         heroHealth: hp(opponent),
       },
