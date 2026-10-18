@@ -4,6 +4,7 @@ import type {
   HistoryGame,
   HistoryListing,
   OverlayPayload,
+  OverlaySettings,
 } from '../shared/payload.js';
 
 interface DemoHistory extends HistoryListing {
@@ -22,14 +23,30 @@ export function demoBridge(): BgtBridge {
     .catch(() => ({ games: [], names: {}, details: {} }));
   let frames: OverlayPayload[] = [];
   let index = 0;
+  /** Réglages modifiés dans la fenêtre Réglages de la démo (non persistés). */
+  let settings: OverlaySettings | undefined;
   const emit = (): void => {
     const frame = frames[index];
-    if (frame !== undefined) for (const l of listeners) l(frame);
+    if (frame === undefined) return;
+    const shown = settings === undefined ? frame : { ...frame, settings };
+    for (const l of listeners) l(shown);
   };
   void fetch('./demo.json')
     .then((r) => r.json() as Promise<OverlayPayload[]>)
     .then((f) => {
       frames = f;
+      // ?lang=en&theme=contrast : captures et essais de l'i18n / des thèmes sans la fenêtre Réglages.
+      const q = new URLSearchParams(location.search);
+      const base = f[0]?.settings;
+      const lang = q.get('lang');
+      const theme = q.get('theme');
+      if (base !== undefined && (lang !== null || theme !== null)) {
+        settings = {
+          ...base,
+          language: lang === 'en' ? 'en' : base.language,
+          theme: theme === 'light' || theme === 'contrast' ? theme : base.theme,
+        };
+      }
       fromQuery();
     });
   // Instantané choisi par ?f=N (le hash sert à la route : #browser).
@@ -69,6 +86,23 @@ export function demoBridge(): BgtBridge {
     },
     openDashboard() {
       window.open('./#dashboard', '_blank');
+    },
+    openSettings() {
+      window.open('./#settings', '_blank');
+    },
+    updateSettings(patch) {
+      const cur = settings ?? frames[index]?.settings;
+      if (cur === undefined) return;
+      const { resetPanels, ...rest } = patch;
+      settings = {
+        ...cur,
+        ...rest,
+        sections: { ...cur.sections, ...patch.sections },
+        alerts: { ...cur.alerts, ...patch.alerts },
+        streamer: { ...cur.streamer, ...patch.streamer },
+        panels: resetPanels === true ? (frames[0]?.settings.panels ?? cur.panels) : cur.panels,
+      };
+      emit();
     },
     history: {
       list: () => demoHistory.then((h) => ({ games: h.games, names: h.names })),

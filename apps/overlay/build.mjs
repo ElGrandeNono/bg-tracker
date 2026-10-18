@@ -16,12 +16,20 @@ const common = {
   logLevel: 'warning',
 };
 
+// Bundles ESM : les dépendances CommonJS (electron-updater…) appellent require() dynamiquement.
+const esm = {
+  format: 'esm',
+  banner: {
+    js: "import { createRequire as __bgtRequire } from 'node:module'; const require = __bgtRequire(import.meta.url);",
+  },
+};
+
 await Promise.all([
   build({
     ...common,
     entryPoints: ['src/main/main.ts'],
     outfile: 'dist/main/main.js',
-    format: 'esm',
+    ...esm,
   }),
   build({
     ...common,
@@ -33,14 +41,14 @@ await Promise.all([
     ...common,
     entryPoints: ['src/tools/makeDemo.ts'],
     outfile: 'dist/tools/makeDemo.js',
-    format: 'esm',
+    ...esm,
   }),
   // Worker du simulateur de combat (worker_threads), chargé par SimulationPool.
   build({
     ...common,
     entryPoints: ['src/main/simWorker.ts'],
     outfile: 'dist/main/simWorker.js',
-    format: 'esm',
+    ...esm,
   }),
 ]);
 

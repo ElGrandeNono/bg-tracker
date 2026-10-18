@@ -27,6 +27,7 @@ import { buildPoolCatalog, loadCardDb, type CardDb } from '@bgt/data';
 import type { PoolCard } from '@bgt/core';
 import {
   CHANNELS,
+  type SettingsPatch,
   type HsWindowState,
   type OverlayPayload,
   type OverlaySettings,
@@ -41,7 +42,10 @@ import { buildSimRequest, type SimRequest } from './combatSim.js';
 import { HistoryService } from './history.js';
 import { SimulationPool } from '@bgt/sim';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
-import { loadSettings, saveSettings } from './settings.js';
+import { applyPatch, loadSettings, saveSettings } from './settings.js';
+import { StreamServer, streamPayload } from './streamServer.js';
+import { menuStrings } from './menuStrings.js';
+import { checkForUpdates } from './updater.js';
 
 /**
  * Processus principal de l'overlay.
@@ -74,8 +78,16 @@ const replayPath = typeof args.replay === 'string' ? args.replay : undefined;
 const smokeOut = typeof args.smoke === 'string' ? args.smoke : undefined;
 const speed = Number(typeof args.speed === 'string' ? args.speed : smokeOut ? '0' : '1');
 const standalone = replayPath !== undefined || args.standalone === true;
-const locale = args.locale === 'enUS' ? 'enUS' : 'frFR';
+/** Langue des données de cartes : `--locale` si fourni, sinon celle des réglages. */
+const cardLocale = (): 'frFR' | 'enUS' =>
+  args.locale === 'enUS' || args.locale === 'frFR'
+    ? args.locale
+    : settings.language === 'en'
+      ? 'enUS'
+      : 'frFR';
 
+// Développement et tests : dossier de données séparé (réglages, historique, cache de cartes).
+if (process.env.BGT_USER_DATA !== undefined) app.setPath('userData', process.env.BGT_USER_DATA);
 const settingsFile = join(app.getPath('userData'), 'overlay-settings.json');
 let settings: OverlaySettings = { ...loadSettings(settingsFile), backdrop: standalone };
 const pipeline = new Pipeline(currentSeason);
@@ -86,6 +98,10 @@ let win: BrowserWindow | undefined;
 let browserWin: BrowserWindow | undefined;
 /** Tableau de bord : historique, statistiques, replay de partie. */
 let dashboardWin: BrowserWindow | undefined;
+/** Réglages : apparence, sections, alertes, mode streamer, mises à jour. */
+let settingsWin: BrowserWindow | undefined;
+/** Mode streamer (désactivé par défaut) : serveur local pour OBS, 127.0.0.1 uniquement. */
+const streamServer = new StreamServer(join(here, '../renderer'));
 /** Historique local (créé au démarrage de l'application). */
 let history: HistoryService | undefined;
 /** Power.log suivi en direct (exclu de l'import des anciens logs). */
@@ -152,7 +168,8 @@ let status: OverlayStatus = {
   replayDone: false,
 };
 let cardDb: CardDb | undefined;
-let cardDbBuild: string | undefined;
+/** Build + locale des données chargées (un changement de langue recharge les noms). */
+let cardDbKey: string | undefined;
 let timerEndsAt: number | undefined;
 let lastRecruitCount = 0;
 let smokeScheduled = false;
@@ -172,8 +189,10 @@ app.on('web-contents-created', (_e, contents) => {
 // ---------------------------------------------------------------- données de cartes
 
 async function ensureCardDb(build: string | undefined): Promise<void> {
-  if (build === undefined || build === cardDbBuild) return;
-  cardDbBuild = build;
+  const locale = cardLocale();
+  const key = `${build}/${locale}`;
+  if (build === undefined || key === cardDbKey) return;
+  cardDbKey = key;
   status = { ...status, cardData: 'loading' };
   try {
     const result = await loadCardDb({
@@ -181,6 +200,7 @@ async function ensureCardDb(build: string | undefined): Promise<void> {
       locale,
       cacheDir: join(app.getPath('userData'), 'cards'),
     });
+    if (cardDbKey !== key) return; // langue changée entre-temps
     cardDb = result.db;
     poolCatalog = buildPoolCatalog(result.db);
     uiCatalog = catalogCards(result.db, poolCatalog, poolRules);
@@ -241,11 +261,13 @@ function push(): void {
     pool: poolCatalog.length === 0 ? undefined : poolPayload(view, poolCatalog, poolRules),
     combatSim: updateSimulation(buildSimRequest(view, cardDb)),
   };
-  for (const w of [win, browserWin]) {
+  // Toutes les fenêtres reçoivent la vue : langue et thème suivent les réglages partout.
+  for (const w of [win, browserWin, dashboardWin, settingsWin]) {
     if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
       w.webContents.send(CHANNELS.update, payload);
     }
   }
+  streamServer.publish(streamPayload(payload, settings.streamer));
   if (process.env.BGT_DEBUG === '1') {
     console.log(
       `[bgt] vue : BG=${view.isBattlegrounds} tour=${view.round} phase=${view.phase} issue=${view.outcome} joueurs=${view.players.length} fenêtre=${status.hsWindow}`,
@@ -270,7 +292,22 @@ pipeline.subscribe(() => {
 // ---------------------------------------------------------------- fenêtre
 
 function applySettings(next: OverlaySettings, persist = true): void {
+  const previous = settings;
   settings = next;
+  if (next.language !== previous.language) {
+    for (const [w, title] of [
+      [browserWin, menuStrings(next.language).titleBrowser],
+      [dashboardWin, menuStrings(next.language).titleDashboard],
+      [settingsWin, menuStrings(next.language).titleSettings],
+    ] as const) {
+      if (w !== undefined && !w.isDestroyed()) w.setTitle(title);
+    }
+    // Les noms de cartes sont rechargés dans la nouvelle langue au prochain envoi (push).
+  }
+  void syncStreamServer();
+  if (next.autoUpdate && !previous.autoUpdate && app.isPackaged) {
+    void checkForUpdates(() => menuStrings(settings.language));
+  }
   if (win !== undefined) {
     win.setIgnoreMouseEvents(settings.locked, { forward: true });
     win.setFocusable(!settings.locked);
@@ -342,15 +379,57 @@ function onHsSample(sample: HsWindowSample): void {
  * navigateur de serviteurs (route #browser) et tableau de bord (route #dashboard).
  */
 function openBrowser(): void {
-  browserWin = openAuxWindow(browserWin, 'browser', 'BG Tracker — serviteurs', () => {
-    browserWin = undefined;
-  });
+  browserWin = openAuxWindow(
+    browserWin,
+    'browser',
+    menuStrings(settings.language).titleBrowser,
+    () => {
+      browserWin = undefined;
+    },
+  );
 }
 
 function openDashboard(): void {
-  dashboardWin = openAuxWindow(dashboardWin, 'dashboard', 'BG Tracker — historique', () => {
-    dashboardWin = undefined;
-  });
+  dashboardWin = openAuxWindow(
+    dashboardWin,
+    'dashboard',
+    menuStrings(settings.language).titleDashboard,
+    () => {
+      dashboardWin = undefined;
+    },
+  );
+}
+
+function openSettings(): void {
+  settingsWin = openAuxWindow(
+    settingsWin,
+    'settings',
+    menuStrings(settings.language).titleSettings,
+    () => {
+      settingsWin = undefined;
+    },
+  );
+}
+
+/** Démarre, déplace ou arrête le serveur OBS selon les réglages (jamais sans opt-in). */
+let streamWanted = '';
+async function syncStreamServer(): Promise<void> {
+  const s = settings.streamer;
+  const wanted = s.enabled && smokeOut === undefined ? String(s.port) : '';
+  if (wanted === streamWanted) return;
+  streamWanted = wanted;
+  try {
+    if (wanted === '') await streamServer.stop();
+    else await streamServer.start(s.port);
+  } catch {
+    streamWanted = '';
+    await streamServer.stop();
+    tray?.displayBalloon({
+      title: 'BG Tracker',
+      content: menuStrings(settings.language).streamError(s.port),
+    });
+  }
+  schedulePush();
 }
 
 function openAuxWindow(
@@ -365,8 +444,8 @@ function openAuxWindow(
     return existing;
   }
   const w = new BrowserWindow({
-    width: route === 'dashboard' ? 1180 : 1040,
-    height: 780,
+    width: route === 'dashboard' ? 1180 : route === 'settings' ? 640 : 1040,
+    height: route === 'settings' ? 820 : 780,
     title,
     autoHideMenuBar: true,
     backgroundColor: '#12141c',
@@ -430,31 +509,34 @@ function cycleOpacity(): void {
   applySettings({ ...settings, opacity: steps[(i + 1) % steps.length] ?? 1 });
 }
 
-const SHORTCUTS: readonly [string, string, () => void][] = [
+type MenuKey = 'toggle' | 'unlock' | 'opacity' | 'compact' | 'browser' | 'dashboard' | 'settings';
+
+const SHORTCUTS: readonly [string, MenuKey, () => void][] = [
   [
     'CommandOrControl+Shift+H',
-    'Afficher / masquer',
+    'toggle',
     () => {
       applySettings({ ...settings, hidden: !settings.hidden });
     },
   ],
   [
     'CommandOrControl+Shift+U',
-    'Déverrouiller / verrouiller (déplacer)',
+    'unlock',
     () => {
       applySettings({ ...settings, locked: !settings.locked });
     },
   ],
-  ['CommandOrControl+Shift+O', 'Opacité', cycleOpacity],
+  ['CommandOrControl+Shift+O', 'opacity', cycleOpacity],
   [
     'CommandOrControl+Shift+C',
-    'Mode compact',
+    'compact',
     () => {
       applySettings({ ...settings, compact: !settings.compact });
     },
   ],
-  ['CommandOrControl+Shift+B', 'Navigateur de serviteurs', openBrowser],
-  ['CommandOrControl+Shift+D', 'Historique et statistiques', openDashboard],
+  ['CommandOrControl+Shift+B', 'browser', openBrowser],
+  ['CommandOrControl+Shift+D', 'dashboard', openDashboard],
+  ['CommandOrControl+Shift+P', 'settings', openSettings],
 ];
 
 function trayIcon(): Electron.NativeImage {
@@ -467,14 +549,19 @@ function trayIcon(): Electron.NativeImage {
 
 function refreshTrayMenu(): void {
   if (tray === undefined) return;
+  const m = menuStrings(settings.language);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'BG Tracker — non affilié à Blizzard Entertainment', enabled: false },
+      { label: m.disclaimer, enabled: false },
       { type: 'separator' },
-      ...SHORTCUTS.map(([accel, label, action]) => ({ label, accelerator: accel, click: action })),
+      ...SHORTCUTS.map(([accel, key, action]) => ({
+        label: m[key],
+        accelerator: accel,
+        click: action,
+      })),
       { type: 'separator' },
       {
-        label: 'Quitter',
+        label: m.quit,
         click: () => {
           app.quit();
         },
@@ -536,8 +623,16 @@ ipcMain.on(CHANNELS.openBrowser, () => {
 ipcMain.on(CHANNELS.openDashboard, () => {
   openDashboard();
 });
+ipcMain.on(CHANNELS.openSettings, () => {
+  openSettings();
+});
 ipcMain.on(CHANNELS.saveLayout, (_e, panels: OverlaySettings['panels']) => {
   applySettings({ ...settings, panels });
+});
+ipcMain.on(CHANNELS.updateSettings, (_e, patch: unknown) => {
+  // Le patch vient du renderer : applyPatch le repasse par la validation complète.
+  const p = typeof patch === 'object' && patch !== null ? (patch as SettingsPatch) : {};
+  applySettings(applyPatch(settings, p));
 });
 ipcMain.on(CHANNELS.rendered, () => {
   if (process.env.BGT_DEBUG === '1') console.log('[bgt] rendered', status.replayDone);
@@ -553,6 +648,9 @@ ipcMain.on(CHANNELS.rendered, () => {
   } else if (route === 'browser') {
     openBrowser();
     target = browserWin ?? win;
+  } else if (route === 'settings') {
+    openSettings();
+    target = settingsWin ?? win;
   }
   setTimeout(
     () => {
@@ -573,7 +671,7 @@ void app.whenReady().then(async () => {
   history = new HistoryService(
     app.getPath('userData'),
     () => cardDb,
-    () => [win, browserWin, dashboardWin],
+    () => [win, browserWin, dashboardWin, settingsWin],
   );
   history.registerIpc(
     () => paths.logsRoot,
@@ -589,11 +687,17 @@ void app.whenReady().then(async () => {
     refreshTrayMenu();
     for (const [accel, , action] of SHORTCUTS) globalShortcut.register(accel, action);
   }
+  void syncStreamServer();
+  // Mises à jour : uniquement si l'utilisateur l'a activé (accès réseau à GitHub).
+  if (settings.autoUpdate && app.isPackaged && smokeOut === undefined) {
+    void checkForUpdates(() => menuStrings(settings.language));
+  }
   await startSource();
 });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  void streamServer.stop();
 });
 app.on('window-all-closed', () => {
   app.quit();

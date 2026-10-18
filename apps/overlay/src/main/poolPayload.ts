@@ -6,7 +6,7 @@ import {
   type VisibleView,
 } from '@bgt/core';
 import type { CardDb } from '@bgt/data';
-import type { CatalogCard, PoolPayload } from '../shared/payload.js';
+import type { CatalogCard, PoolPayload, UnverifiedRule } from '../shared/payload.js';
 
 /** Texte de carte HearthstoneJSON → texte brut (balises `<b>`/`<i>`, marqueur `[x]`). */
 export function plainText(text: string): string {
@@ -57,11 +57,11 @@ export function poolPayload(
       },
     ]),
   );
-  const unverifiedRules = Object.entries(rules.copiesPerTier)
+  const unverifiedRules: UnverifiedRule[] = Object.entries(rules.copiesPerTier)
     .filter(([, v]) => !v.verified)
-    .map(([t, v]) => `${v.value} exemplaires au niveau ${t}`);
+    .map(([t, v]) => ({ kind: 'copies', tier: Number(t), copies: v.value }));
   if (!rules.eliminatedPlayersReturnMinions.verified) {
-    unverifiedRules.push('serviteurs des joueurs éliminés rendus au pool');
+    unverifiedRules.push({ kind: 'eliminatedReturn' });
   }
   return {
     tiers: pool.tiers,

@@ -41,6 +41,12 @@ const bridge: BgtBridge = {
   openDashboard() {
     ipcRenderer.send(CHANNELS.openDashboard);
   },
+  openSettings() {
+    ipcRenderer.send(CHANNELS.openSettings);
+  },
+  updateSettings(patch) {
+    ipcRenderer.send(CHANNELS.updateSettings, patch);
+  },
   history: {
     list: () => ipcRenderer.invoke(CHANNELS.historyList),
     get: (id) => ipcRenderer.invoke(CHANNELS.historyGet, id),

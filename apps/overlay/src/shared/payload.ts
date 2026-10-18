@@ -13,6 +13,8 @@ export const CHANNELS = {
   catalog: 'bgt:catalog',
   openBrowser: 'bgt:open-browser',
   openDashboard: 'bgt:open-dashboard',
+  openSettings: 'bgt:open-settings',
+  updateSettings: 'bgt:update-settings',
   historyList: 'bgt:history-list',
   historyGet: 'bgt:history-get',
   historyUpdate: 'bgt:history-update',
@@ -71,10 +73,50 @@ export interface PanelPosition {
   readonly y: number;
 }
 
+export type Theme = 'dark' | 'light' | 'contrast';
+export type Language = 'fr' | 'en';
+
+/** Sections de l'overlay que l'on peut masquer individuellement. */
+export interface SectionVisibility {
+  readonly bar: boolean;
+  readonly lobby: boolean;
+  readonly tribes: boolean;
+  readonly pool: boolean;
+  readonly season: boolean;
+  readonly simulation: boolean;
+  readonly opponentBoard: boolean;
+}
+
+export interface AlertSettings {
+  readonly sound: boolean;
+  readonly turnStart: boolean;
+  /** Moins de 10 s de recrutement. */
+  readonly timerLow: boolean;
+  /** Un triple est réalisable : deux exemplaires (main + plateau) et le troisième en boutique. */
+  readonly triple: boolean;
+  /** Toutes les tribus du lobby viennent d'être identifiées. */
+  readonly tribesFound: boolean;
+}
+
+export interface StreamerSettings {
+  /** Serveur local pour OBS (127.0.0.1 uniquement) : désactivé par défaut. */
+  readonly enabled: boolean;
+  readonly port: number;
+  readonly hideOpponentNames: boolean;
+  readonly hideSimulation: boolean;
+  readonly hidePool: boolean;
+}
+
 export interface OverlaySettings {
   readonly opacity: number;
   readonly compact: boolean;
-  readonly theme: 'dark' | 'light';
+  readonly theme: Theme;
+  readonly language: Language;
+  readonly sections: SectionVisibility;
+  readonly alerts: AlertSettings;
+  readonly streamer: StreamerSettings;
+  /** Vérification des mises à jour sur GitHub : désactivée par défaut (accès réseau). */
+  readonly autoUpdate: boolean;
   /** Verrouillé = click-through ; déverrouillé = panneaux déplaçables. */
   readonly locked: boolean;
   readonly hidden: boolean;
@@ -88,6 +130,25 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   opacity: 0.92,
   compact: false,
   theme: 'dark',
+  language: 'fr',
+  sections: {
+    bar: true,
+    lobby: true,
+    tribes: true,
+    pool: true,
+    season: true,
+    simulation: true,
+    opponentBoard: true,
+  },
+  alerts: { sound: false, turnStart: false, timerLow: true, triple: true, tribesFound: false },
+  streamer: {
+    enabled: false,
+    port: 5280,
+    hideOpponentNames: true,
+    hideSimulation: false,
+    hidePool: false,
+  },
+  autoUpdate: false,
   locked: true,
   hidden: false,
   scale: 1,
@@ -124,12 +185,16 @@ export interface PoolPayload {
   readonly byTribe: Readonly<Record<string, number>>;
   readonly lobbyComplete: boolean;
   /** Règles dont les sources divergent (affichées comme incertaines). */
-  readonly unverifiedRules: readonly string[];
+  readonly unverifiedRules: readonly UnverifiedRule[];
   /** Par carte : exemplaires restants, appartenance, probabilité à la prochaine actualisation. */
   readonly cards: Readonly<
     Record<string, { remaining: number; membership: Membership; probability: number }>
   >;
 }
+
+export type UnverifiedRule =
+  | { readonly kind: 'copies'; readonly tier: number; readonly copies: number }
+  | { readonly kind: 'eliminatedReturn' };
 
 /** Fiche statique d'un serviteur du pool (envoyée une fois par build, pour le navigateur). */
 export interface CatalogCard {
@@ -146,6 +211,15 @@ export interface CatalogCard {
   readonly copies: number;
 }
 
+export type SettingsPatch = Partial<
+  Omit<OverlaySettings, 'sections' | 'alerts' | 'streamer' | 'panels' | 'backdrop' | 'locked'>
+> & {
+  readonly sections?: Partial<SectionVisibility>;
+  readonly alerts?: Partial<AlertSettings>;
+  readonly streamer?: Partial<StreamerSettings>;
+  readonly resetPanels?: boolean;
+};
+
 /** API exposée au renderer par le preload (`window.bgt`). */
 export interface BgtBridge {
   onUpdate(listener: (payload: OverlayPayload) => void): () => void;
@@ -156,5 +230,8 @@ export interface BgtBridge {
   onCatalog(listener: (cards: readonly CatalogCard[]) => void): () => void;
   openBrowser(): void;
   openDashboard(): void;
+  openSettings(): void;
+  /** Fusionne des réglages (fenêtre Réglages) ; le résultat revient via onUpdate. */
+  updateSettings(patch: SettingsPatch): void;
   readonly history: HistoryBridge;
 }

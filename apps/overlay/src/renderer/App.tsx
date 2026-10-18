@@ -13,7 +13,8 @@ import type {
   OverlaySettings,
   PanelPosition,
 } from '../shared/payload.js';
-import { HS_WINDOW_MESSAGES, KEYWORD_LABELS, PHASE_LABELS, TRIBE_LABELS } from './strings.js';
+import { useI18n, type Messages } from './i18n.js';
+import { useAlerts } from './alerts.js';
 
 type Names = OverlayPayload['names'];
 
@@ -111,35 +112,39 @@ function TopBar({ p, now }: { p: OverlayPayload; now: number }): React.JSX.Eleme
   const { view } = p;
   const l = view.local;
   const remaining = p.timerEndsAt === undefined ? undefined : p.timerEndsAt - now;
+  const t = useI18n();
+  const b = t.bar;
   return (
     <div className="bar">
       <span className="bar__item bar__round">
-        Tour <b>{view.round || '–'}</b>
-        <small>{PHASE_LABELS[view.phase]}</small>
+        {b.round} <b>{view.round || '–'}</b>
+        <small>{t.phases[view.phase]}</small>
       </span>
-      <span className="bar__item" title="Niveau de taverne · coût de l’amélioration">
-        Taverne <b>{l.techLevel ?? '–'}</b>
+      <span className="bar__item" title={b.tavernHint}>
+        {b.tavern} <b>{l.techLevel ?? '–'}</b>
         {l.upgradeCost !== undefined && l.techLevel !== 6 && (
           <small className="bar__upgrade">↑ {l.upgradeCost}</small>
         )}
       </span>
-      <span className="bar__item bar__gold" title="Or disponible / or du tour">
+      <span className="bar__item bar__gold" title={b.goldHint}>
         <b>{l.gold ?? '–'}</b>
-        <small>/ {l.maxGold ?? '–'} or</small>
+        <small>
+          / {l.maxGold ?? '–'} {b.gold}
+        </small>
       </span>
       {remaining !== undefined && (
         <span
           className={`bar__item bar__timer ${remaining < 10_000 ? 'bar__timer--low' : ''}`}
-          title="Minuteur estimé à partir du log"
+          title={b.timerHint}
         >
           ⏱ <b>{formatTimer(remaining)}</b>
         </span>
       )}
-      <span className="bar__item" title="Points de vie · armure">
+      <span className="bar__item" title={b.healthHint}>
         ♥ <b>{l.health ?? '–'}</b>
         {l.armor !== undefined && l.armor > 0 && <small>+{l.armor}</small>}
       </span>
-      <span className="bar__item" title="Triples réalisés">
+      <span className="bar__item" title={b.triplesHint}>
         ✦ <b>{l.triples ?? 0}</b>
       </span>
     </div>
@@ -149,6 +154,7 @@ function TopBar({ p, now }: { p: OverlayPayload; now: number }): React.JSX.Eleme
 // ------------------------------------------------------------------ lobby
 
 function Minion({ m, names }: { m: VisibleMinion; names: Names }): React.JSX.Element {
+  const t = useI18n();
   return (
     <li className={`minion ${m.golden ? 'minion--golden' : ''}`} title={nameOf(names, m.cardId)}>
       <span className="minion__name">{nameOf(names, m.cardId)}</span>
@@ -158,8 +164,8 @@ function Minion({ m, names }: { m: VisibleMinion; names: Names }): React.JSX.Ele
       {m.keywords.length > 0 && (
         <span className="minion__kw">
           {m.keywords.map((k) => (
-            <abbr key={k} title={KEYWORD_LABELS[k].long}>
-              {KEYWORD_LABELS[k].short}
+            <abbr key={k} title={t.keywords[k].long}>
+              {t.keywords[k].short}
             </abbr>
           ))}
         </span>
@@ -177,6 +183,7 @@ function PlayerRow({
   names: Names;
   compact: boolean;
 }): React.JSX.Element {
+  const t = useI18n().lobby;
   const cls = [
     'row',
     pl.isLocal ? 'row--local' : '',
@@ -190,16 +197,16 @@ function PlayerRow({
       <span className="row__hero">
         {nameOf(names, pl.heroCardId)}
         {!compact && pl.name !== undefined && !pl.isLocal && <small> · {pl.name}</small>}
-        {pl.isLocal && <small> · toi</small>}
+        {pl.isLocal && <small> · {t.you}</small>}
       </span>
-      <span className="row__tier" title="Niveau de taverne">
+      <span className="row__tier" title={t.tierHint}>
         {pl.techLevel ?? '–'}
       </span>
-      <span className="row__hp" title="Points de vie">
+      <span className="row__hp" title={t.healthHint}>
         {pl.health ?? '–'}
       </span>
       {!compact && (
-        <span className="row__triples" title="Triples">
+        <span className="row__triples" title={t.triplesHint}>
           {pl.triples ? `✦${pl.triples}` : ''}
         </span>
       )}
@@ -210,32 +217,37 @@ function PlayerRow({
 
 function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
   const { view, names, settings } = p;
+  const s = settings.sections;
+  const t = useI18n().lobby;
   const focus =
     view.players.find((x) => x.isCurrentOpponent) ?? view.players.find((x) => x.isNextOpponent);
+  const showSim =
+    s.simulation && p.combatSim !== undefined && p.combatSim.opponentPlayerId === focus?.playerId;
   return (
     <div className="lobby">
-      <ol className="rows">
-        {view.players.map((pl) => (
-          <PlayerRow key={pl.playerId} pl={pl} names={names} compact={settings.compact} />
-        ))}
-      </ol>
-      {!settings.compact && <Tribes view={view} />}
-      {!settings.compact && <PoolSummary p={p} />}
-      {!settings.compact && <SeasonPanel p={p} />}
-      {focus !== undefined && (
+      {s.lobby && (
+        <ol className="rows">
+          {view.players.map((pl) => (
+            <PlayerRow key={pl.playerId} pl={pl} names={names} compact={settings.compact} />
+          ))}
+        </ol>
+      )}
+      {!settings.compact && s.tribes && <Tribes view={view} />}
+      {!settings.compact && s.pool && <PoolSummary p={p} />}
+      {!settings.compact && s.season && <SeasonPanel p={p} />}
+      {focus !== undefined && (s.opponentBoard || showSim) && (
         <section className="board">
           <h3>
-            {focus.isCurrentOpponent ? 'Adversaire' : 'Prochain adversaire'} :{' '}
+            {focus.isCurrentOpponent ? t.opponent : t.nextOpponent}
+            {t.colon}
             {nameOf(names, focus.heroCardId)}
           </h3>
-          {p.combatSim !== undefined && p.combatSim.opponentPlayerId === focus.playerId && (
-            <CombatSim sim={p.combatSim} />
-          )}
-          {focus.lastBoard === undefined ? (
-            <p className="muted">Plateau jamais vu</p>
+          {showSim && <CombatSim sim={p.combatSim} />}
+          {!s.opponentBoard ? null : focus.lastBoard === undefined ? (
+            <p className="muted">{t.boardNeverSeen}</p>
           ) : (
             <>
-              <p className="muted">Plateau vu au tour {focus.lastBoard.round}</p>
+              <p className="muted">{t.boardSeen(focus.lastBoard.round)}</p>
               <ol className="minions">
                 {focus.lastBoard.minions.map((m, i) => (
                   <Minion key={`${m.cardId}-${i}`} m={m} names={names} />
@@ -254,37 +266,45 @@ const pctOf = (x: number): string => `${Math.round(x * 100)} %`;
 /** Probabilités de combat (Monte Carlo sur les plateaux affichés). */
 function CombatSim({ sim }: { sim: NonNullable<OverlayPayload['combatSim']> }): React.JSX.Element {
   const s = sim.summary;
+  const all = useI18n();
+  const t = all.sim;
+  const avg = (x: number): string => x.toLocaleString(all.locale, { maximumFractionDigits: 1 });
   const range = (d: typeof s.damageToA): string =>
-    d === undefined ? '–' : `${d.min}–${d.max} (moy. ${d.avg.toFixed(1)})`;
+    d === undefined ? '–' : `${d.min}–${d.max} (${t.avg} ${avg(d.avg)})`;
   return (
-    <div className="sim" title={`${s.iterations} combats simulés${sim.final ? '' : ' (en cours)'}`}>
+    <div className="sim" title={t.hint(s.iterations, sim.final)}>
       <div className="sim__bar" aria-hidden="true">
         <span className="sim__win" style={{ width: pctOf(s.win) }} />
         <span className="sim__tie" style={{ width: pctOf(s.tie) }} />
         <span className="sim__loss" style={{ width: pctOf(s.loss) }} />
       </div>
       <p className="sim__line">
-        <b className="sim__w">V {pctOf(s.win)}</b> · É {pctOf(s.tie)} ·{' '}
-        <b className="sim__l">D {pctOf(s.loss)}</b>
-        {(s.lethalForA ?? 0) > 0 && <> · létal lui {pctOf(s.lethalForA ?? 0)}</>}
+        <b className="sim__w">
+          {t.win} {pctOf(s.win)}
+        </b>{' '}
+        · {t.tie} {pctOf(s.tie)} ·{' '}
+        <b className="sim__l">
+          {t.loss} {pctOf(s.loss)}
+        </b>
+        {(s.lethalForA ?? 0) > 0 && (
+          <>
+            {' '}
+            · {t.lethalThem} {pctOf(s.lethalForA ?? 0)}
+          </>
+        )}
         {(s.lethalForB ?? 0) > 0 && (
           <>
             {' '}
-            · <b className="sim__l">létal toi {pctOf(s.lethalForB ?? 0)}</b>
+            ·{' '}
+            <b className="sim__l">
+              {t.lethalYou} {pctOf(s.lethalForB ?? 0)}
+            </b>
           </>
         )}
       </p>
-      <p className="muted">
-        Dégâts infligés {range(s.damageToB)} · reçus {range(s.damageToA)}
-      </p>
-      {sim.context === 'nextOpponent' && (
-        <p className="muted">D’après son plateau du tour {sim.boardRound}.</p>
-      )}
-      {s.approximate && (
-        <p className="sim__approx">
-          ≈ Approximatif : {s.unsupportedCards.length} carte(s) aux effets non simulés.
-        </p>
-      )}
+      <p className="muted">{t.damage(range(s.damageToB), range(s.damageToA))}</p>
+      {sim.context === 'nextOpponent' && <p className="muted">{t.fromBoard(sim.boardRound)}</p>}
+      {s.approximate && <p className="sim__approx">{t.approximate(s.unsupportedCards.length)}</p>}
     </div>
   );
 }
@@ -292,18 +312,19 @@ function CombatSim({ sim }: { sim: NonNullable<OverlayPayload['combatSim']> }): 
 /** Mécaniques de saison du joueur local (trinkets, Sombres dons, Activations, compteurs). */
 function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const s = p.view.season;
+  const t = useI18n().season;
   if (s === undefined) return null;
   const n = (id: string): string => nameOf(p.names, id);
   const lines: React.ReactNode[] = [];
   if (s.trinkets.length > 0) {
     lines.push(
       <li key="t">
-        <span className="season__label">Bibelots</span>{' '}
+        <span className="season__label">{t.trinkets}</span>{' '}
         {s.trinkets
-          .map((t) =>
-            t.kind === 'chosen'
-              ? n(t.cardId)
-              : `${t.slot === 'lesser' ? 'mineur' : 'majeur'} ${t.turnsLeft === undefined || t.turnsLeft <= 0 ? 'à choisir' : `dans ${t.turnsLeft} t.`}`,
+          .map((x) =>
+            x.kind === 'chosen'
+              ? n(x.cardId)
+              : `${x.slot === 'lesser' ? t.lesser : t.greater} ${x.turnsLeft === undefined || x.turnsLeft <= 0 ? t.toChoose : t.inTurns(x.turnsLeft)}`,
           )
           .join(' · ')}
       </li>,
@@ -316,13 +337,13 @@ function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
         key="d"
         title={dg.gifts.map((g) => `${n(g.giftCardId)} → ${n(g.minionCardId)}`).join(' · ')}
       >
-        <span className="season__label">Sombres dons</span> <b>{dg.used}</b>/{dg.max}
+        <span className="season__label">{t.darkGifts}</span> <b>{dg.used}</b>/{dg.max}
         {p.view.outcome === 'inProgress' &&
           dg.used < dg.max &&
           (dg.available ? (
-            <small className="season__ok"> dispo ({dg.cost ?? '?'} or)</small>
+            <small className="season__ok">{t.available(String(dg.cost ?? '?'))}</small>
           ) : (
-            <small> indispo</small>
+            <small>{t.unavailable}</small>
           ))}
         {dg.gifts.length > 0 && <small> · {dg.gifts.map((g) => n(g.giftCardId)).join(', ')}</small>}
       </li>,
@@ -331,7 +352,8 @@ function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   if (s.activationsThisTurn.length > 0) {
     lines.push(
       <li key="a">
-        <span className="season__label">Activations</span> {s.activationsThisTurn.map(n).join(', ')}
+        <span className="season__label">{t.activations}</span>{' '}
+        {s.activationsThisTurn.map(n).join(', ')}
       </li>,
     );
   }
@@ -341,11 +363,11 @@ function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
     c.tavernSpellBuff !== undefined &&
     (c.tavernSpellBuff.attack > 0 || c.tavernSpellBuff.health > 0)
   ) {
-    counters.push(`sorts +${c.tavernSpellBuff.attack}/+${c.tavernSpellBuff.health}`);
+    counters.push(t.spells(c.tavernSpellBuff.attack, c.tavernSpellBuff.health));
   }
   if (c.extraGoldNextTurn !== undefined && c.extraGoldNextTurn > 0)
-    counters.push(`+${c.extraGoldNextTurn} or au prochain tour`);
-  if (c.oldGod !== undefined) counters.push(`Divinité ${c.oldGod.attack}/${c.oldGod.health}`);
+    counters.push(t.extraGold(c.extraGoldNextTurn));
+  if (c.oldGod !== undefined) counters.push(t.deity(c.oldGod.attack, c.oldGod.health));
   if (counters.length > 0) lines.push(<li key="c">{counters.join(' · ')}</li>);
   if (lines.length === 0) return null;
   return <ul className="season">{lines}</ul>;
@@ -354,18 +376,19 @@ function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
 /** Restants du pool aux niveaux accessibles (estimation : cartes vues uniquement). */
 function PoolSummary({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const pool = p.pool;
+  const t = useI18n().lobby;
   if (pool === undefined) return null;
   const maxTier = Math.min(7, (p.view.local.techLevel ?? 1) + 1);
-  const tiers = pool.tiers.filter((t) => t.tier <= maxTier && t.cards > 0);
+  const tiers = pool.tiers.filter((x) => x.tier <= maxTier && x.cards > 0);
   return (
-    <p
-      className="pool"
-      title="Exemplaires restants au plus (cartes vues retirées) · Ctrl+Maj+B : navigateur"
-    >
-      Pool{!pool.lobbyComplete && ' (lobby incertain)'} :{' '}
-      {tiers.map((t) => (
-        <span key={t.tier} className={t.verified ? '' : 'pool--unverified'}>
-          N{t.tier} <b>{Math.round((t.remaining / Math.max(1, t.total)) * 100)}%</b>{' '}
+    <p className="pool" title={t.poolHint}>
+      {t.pool}
+      {!pool.lobbyComplete && t.poolUncertain}
+      {t.colon}
+      {tiers.map((x) => (
+        <span key={x.tier} className={x.verified ? '' : 'pool--unverified'}>
+          {t.tierShort}
+          {x.tier} <b>{Math.round((x.remaining / Math.max(1, x.total)) * 100)}%</b>{' '}
         </span>
       ))}
     </p>
@@ -374,41 +397,37 @@ function PoolSummary({ p }: { p: OverlayPayload }): React.JSX.Element | null {
 
 function Tribes({ view }: { view: VisibleView }): React.JSX.Element {
   const t = view.tribes;
+  const m = useI18n();
   return (
-    <p className="tribes" title="Tribus déduites des serviteurs vus (le jeu ne les annonce pas)">
-      Tribus {t.identified.length}/{t.expected} :{' '}
-      {t.identified.length === 0 ? '…' : t.identified.map((x) => TRIBE_LABELS[x] ?? x).join(', ')}
+    <p className="tribes" title={m.lobby.tribesHint}>
+      {m.lobby.tribes} {t.identified.length}/{t.expected}
+      {m.lobby.colon}
+      {t.identified.length === 0 ? '…' : t.identified.map((x) => m.tribes[x] ?? x).join(', ')}
     </p>
   );
 }
 
 // ------------------------------------------------------------------ messages
 
-function Notices({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+function noticesOf(p: OverlayPayload, m: Messages): string[] {
+  const t = m.notices;
   const msgs: string[] = [];
-  const hs = HS_WINDOW_MESSAGES[p.status.hsWindow];
+  const hs = m.hsWindow[p.status.hsWindow];
   if (p.status.source === 'live' && hs !== undefined) msgs.push(hs);
-  if (p.status.configProblems.length > 0) {
-    msgs.push(`Configuration du jeu incomplète : ${p.status.configProblems.join(', ')}`);
-  }
-  if (p.view.isBattlegrounds && p.view.mode === 'duos') {
-    msgs.push(
-      'Mode Duos détecté : pas encore pris en charge (il faut d’abord un log Duos anonymisé). Rien n’est affiché pour éviter des infos fausses.',
-    );
-  } else if (p.view.isBattlegrounds && p.view.mode === 'unknown') {
-    msgs.push('Mode Battlegrounds non reconnu : rien n’est affiché pour éviter des infos fausses.');
-  }
-  if (p.view.warnings.includes('truncated')) {
-    msgs.push('Log tronqué par le jeu : état possiblement incomplet.');
-  }
-  if (p.view.warnings.includes('interrupted'))
-    msgs.push('Partie interrompue : aucune fin de partie dans le log.');
-  if (p.view.warnings.includes('abandoned')) msgs.push('Partie abandonnée : pas de place finale.');
-  if (p.status.cardData === 'stale')
-    msgs.push('Données de cartes d’un autre patch : noms possiblement inexacts.');
-  if (p.status.cardData === 'error') msgs.push('Données de cartes indisponibles (hors ligne ?).');
-  if (!p.settings.locked)
-    msgs.push('Mode déplacement : glissez les panneaux, Ctrl+Maj+U pour verrouiller.');
+  if (p.status.configProblems.length > 0) msgs.push(t.config(p.status.configProblems.join(', ')));
+  if (p.view.isBattlegrounds && p.view.mode === 'duos') msgs.push(t.duos);
+  else if (p.view.isBattlegrounds && p.view.mode === 'unknown') msgs.push(t.unknownMode);
+  if (p.view.warnings.includes('truncated')) msgs.push(t.truncated);
+  if (p.view.warnings.includes('interrupted')) msgs.push(t.interrupted);
+  if (p.view.warnings.includes('abandoned')) msgs.push(t.abandoned);
+  if (p.status.cardData === 'stale') msgs.push(t.staleCards);
+  if (p.status.cardData === 'error') msgs.push(t.noCards);
+  if (!p.settings.locked) msgs.push(t.unlocked);
+  return msgs;
+}
+
+function Notices({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+  const msgs = noticesOf(p, useI18n());
   if (msgs.length === 0) return null;
   return (
     <ul className="notices">
@@ -435,6 +454,8 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
       });
   }, [bridge, payload]);
   const now = useNow(payload?.timerEndsAt !== undefined);
+  const t = useI18n();
+  const toasts = useAlerts(payload, now, t);
 
   if (payload === undefined) return null;
   const { settings, view } = payload;
@@ -455,11 +476,20 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
       hidden={settings.hidden}
     >
       <Notices p={payload} />
+      {toasts.length > 0 && (
+        <ul className="toasts" role="status" aria-live="polite">
+          {toasts.map((x) => (
+            <li key={x.id}>{x.text}</li>
+          ))}
+        </ul>
+      )}
       {solo && view.outcome !== 'finished' && (
         <>
-          <Panel id="bar" position={settings.panels.bar} locked={settings.locked} onMove={onMove}>
-            <TopBar p={payload} now={now} />
-          </Panel>
+          {settings.sections.bar && (
+            <Panel id="bar" position={settings.panels.bar} locked={settings.locked} onMove={onMove}>
+              <TopBar p={payload} now={now} />
+            </Panel>
+          )}
           <Panel
             id="lobby"
             position={settings.panels.lobby}
@@ -473,7 +503,7 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
       {solo && view.outcome === 'finished' && (
         <Panel id="lobby" position={settings.panels.lobby} locked={settings.locked} onMove={onMove}>
           <div className="final">
-            Place finale <b>{view.finalPlace ?? '?'}</b>
+            {t.lobby.finalPlace} <b>{view.finalPlace ?? '?'}</b>
           </div>
           <Lobby p={payload} />
         </Panel>

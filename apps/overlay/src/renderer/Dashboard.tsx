@@ -4,7 +4,7 @@ import type { GameRecord, ReplayRound } from '@bgt/history';
 // Sous-chemin pur : le renderer n'embarque pas le stockage SQLite (Node).
 import { computeStats } from '@bgt/history/stats';
 import type { BgtBridge, HistoryGame, ImportProgress } from '../shared/payload.js';
-import { KEYWORD_LABELS, TRIBE_LABELS } from './strings.js';
+import { useI18n, type Messages } from './i18n.js';
 
 /**
  * Tableau de bord : statistiques de l'historique local, liste des parties (MMR, notes, tags
@@ -14,25 +14,23 @@ import { KEYWORD_LABELS, TRIBE_LABELS } from './strings.js';
 
 type Names = Readonly<Record<string, string>>;
 const nameOf = (names: Names, id: string): string => names[id] ?? id;
-const tribe = (t: string): string => TRIBE_LABELS[t] ?? t;
+const tribe = (t: Messages, x: string): string => t.tribes[x] ?? x;
 const pct = (x: number | undefined): string => (x === undefined ? '–' : `${Math.round(x * 100)} %`);
-const num = (x: number | undefined, d = 2): string =>
-  x === undefined ? '–' : x.toFixed(d).replace('.', ',');
-const date = (iso: string | undefined): string =>
+const num = (t: Messages, x: number | undefined, d = 2): string =>
+  x === undefined
+    ? '–'
+    : x.toLocaleString(t.locale, { minimumFractionDigits: d, maximumFractionDigits: d });
+const date = (t: Messages, iso: string | undefined): string =>
   iso === undefined
     ? '–'
-    : new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
-const duration = (ms: number | undefined): string =>
+    : new Date(iso).toLocaleString(t.locale, { dateStyle: 'short', timeStyle: 'short' });
+const duration = (t: Messages, ms: number | undefined): string =>
   ms === undefined
     ? '–'
-    : `${Math.floor(ms / 60_000)} min ${String(Math.round((ms % 60_000) / 1000)).padStart(2, '0')}`;
-
-const OUTCOME: Record<GameRecord['outcome'], string> = {
-  finished: 'terminée',
-  abandoned: 'abandonnée',
-  interrupted: 'interrompue',
-  inProgress: 'en cours',
-};
+    : t.dashboard.minutes(
+        Math.floor(ms / 60_000),
+        String(Math.round((ms % 60_000) / 1000)).padStart(2, '0'),
+      );
 
 export function Dashboard({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
   const [games, setGames] = useState<readonly GameRecord[]>([]);
@@ -41,6 +39,8 @@ export function Dashboard({ bridge }: { bridge: BgtBridge }): React.JSX.Element 
   const [selected, setSelected] = useState<number | undefined>();
   const [progress, setProgress] = useState<ImportProgress | undefined>();
   const [message, setMessage] = useState<string | undefined>();
+  const t = useI18n();
+  const d = t.dashboard;
 
   const reload = useCallback(() => {
     void bridge.history.list().then((l) => {
@@ -65,20 +65,20 @@ export function Dashboard({ bridge }: { bridge: BgtBridge }): React.JSX.Element 
     setMessage(undefined);
     void bridge.history.importLogs().then((n) => {
       setProgress(undefined);
-      setMessage(n === 0 ? 'Aucune nouvelle partie trouvée.' : `${n} partie(s) ajoutée(s).`);
+      setMessage(n === 0 ? d.noNew : d.added(n));
       reload();
     });
   };
   const exportAs = (format: 'csv' | 'json'): void => {
     void bridge.history.exportGames(format).then((path) => {
-      if (path !== undefined) setMessage(`Exporté : ${path}`);
+      if (path !== undefined) setMessage(d.exported(path));
     });
   };
 
   return (
-    <div className="browser dash theme-dark">
+    <div className="browser dash">
       <header className="browser__head">
-        <h1>Historique</h1>
+        <h1>{d.title}</h1>
         <nav className="dash__tabs" role="tablist">
           <button
             role="tab"
@@ -87,7 +87,7 @@ export function Dashboard({ bridge }: { bridge: BgtBridge }): React.JSX.Element 
               setTab('stats');
             }}
           >
-            Statistiques
+            {d.stats}
           </button>
           <button
             role="tab"
@@ -96,33 +96,31 @@ export function Dashboard({ bridge }: { bridge: BgtBridge }): React.JSX.Element 
               setTab('games');
             }}
           >
-            Parties ({games.length})
+            {d.games(games.length)}
           </button>
         </nav>
         <span className="dash__spacer" />
         <button onClick={importLogs} disabled={progress !== undefined}>
-          Importer les anciens logs
+          {d.import}
         </button>
         <button
           onClick={() => {
             exportAs('csv');
           }}
         >
-          Exporter CSV
+          {d.exportCsv}
         </button>
         <button
           onClick={() => {
             exportAs('json');
           }}
         >
-          Exporter JSON
+          {d.exportJson}
         </button>
       </header>
       {progress !== undefined && (
         <p className="browser__info">
-          Import : {progress.done}/{progress.total} sessions
-          {progress.current !== undefined && ` (${progress.current})`} · {progress.added} partie(s)
-          ajoutée(s)
+          {d.importProgress(progress.done, progress.total, progress.current ?? '', progress.added)}
         </p>
       )}
       {message !== undefined && <p className="browser__info">{message}</p>}
@@ -138,10 +136,7 @@ export function Dashboard({ bridge }: { bridge: BgtBridge }): React.JSX.Element 
           bridge={bridge}
         />
       )}
-      <footer className="browser__foot">
-        Local uniquement · MMR : saisie manuelle (il n’est pas dans les logs) · BG Tracker n’est pas
-        affilié à Blizzard Entertainment.
-      </footer>
+      <footer className="browser__foot">{d.footer}</footer>
     </div>
   );
 }
@@ -155,45 +150,38 @@ function StatsView({
   stats: ReturnType<typeof computeStats>;
   names: Names;
 }): React.JSX.Element {
+  const t = useI18n();
+  const d = t.dashboard;
   if (stats.games === 0 && stats.unranked === 0) {
-    return (
-      <p className="browser__empty">
-        Aucune partie enregistrée. Jouez une partie avec l’overlay ouvert, ou importez vos anciens
-        logs.
-      </p>
-    );
+    return <p className="browser__empty">{d.empty}</p>;
   }
   return (
     <div className="dash__stats">
       <section className="tiles">
-        <Tile label="Parties classées" value={String(stats.games)} />
-        <Tile label="Place moyenne" value={num(stats.averagePlace)} />
-        <Tile label="Top 4" value={pct(stats.top4Rate)} />
-        <Tile label="Victoires" value={pct(stats.winRate)} />
+        <Tile label={d.ranked} value={String(stats.games)} />
+        <Tile label={d.avgPlace} value={num(t, stats.averagePlace)} />
+        <Tile label={d.top4} value={pct(stats.top4Rate)} />
+        <Tile label={d.wins} value={pct(stats.winRate)} />
         <Tile
-          label="Série top 4"
-          value={`${stats.streaks.currentTop4} (max ${stats.streaks.bestTop4})`}
+          label={d.streak}
+          value={d.streakValue(stats.streaks.currentTop4, stats.streaks.bestTop4)}
         />
-        <Tile
-          label="Non classées"
-          value={String(stats.unranked)}
-          hint="Abandons et parties interrompues : exclus des moyennes"
-        />
+        <Tile label={d.unranked} value={String(stats.unranked)} hint={d.unrankedHint} />
       </section>
       <section className="dash__charts">
         <figure className="chart">
-          <figcaption>Place par partie (1 en haut)</figcaption>
+          <figcaption>{d.placeChart}</figcaption>
           <PlaceChart series={stats.series} />
         </figure>
         <figure className="chart">
-          <figcaption>Répartition des places</figcaption>
+          <figcaption>{d.distChart}</figcaption>
           <DistributionChart counts={stats.distribution} />
         </figure>
       </section>
       <section className="dash__tables">
-        <AggTable title="Par héros" rows={stats.byHero} label={(k) => nameOf(names, k)} />
-        <AggTable title="Par tribu du lobby" rows={stats.byTribe} label={tribe} />
-        <AggTable title="Par version du jeu" rows={stats.byBuild} label={(k) => k} />
+        <AggTable title={d.byHero} rows={stats.byHero} label={(k) => nameOf(names, k)} />
+        <AggTable title={d.byTribe} rows={stats.byTribe} label={(k) => tribe(t, k)} />
+        <AggTable title={d.byBuild} rows={stats.byBuild} label={(k) => k} />
       </section>
     </div>
   );
@@ -225,16 +213,18 @@ function AggTable({
   rows: ReturnType<typeof computeStats>['byHero'];
   label: (k: string) => string;
 }): React.JSX.Element {
+  const t = useI18n();
+  const d = t.dashboard;
   return (
     <table className="browser__table">
       <caption>{title}</caption>
       <thead>
         <tr>
           <th />
-          <th>Parties</th>
-          <th>Place moy.</th>
-          <th>Top 4</th>
-          <th>1re</th>
+          <th>{d.colGames}</th>
+          <th>{d.colAvg}</th>
+          <th>{d.top4}</th>
+          <th>{d.colFirst}</th>
         </tr>
       </thead>
       <tbody>
@@ -242,7 +232,7 @@ function AggTable({
           <tr key={r.key}>
             <td>{label(r.key)}</td>
             <td className="num">{r.games}</td>
-            <td className="num">{num(r.averagePlace)}</td>
+            <td className="num">{num(t, r.averagePlace)}</td>
             <td className="num">{pct(r.top4Rate)}</td>
             <td className="num">{pct(r.winRate)}</td>
           </tr>
@@ -266,7 +256,8 @@ function PlaceChart({
 }): React.JSX.Element {
   const [hover, setHover] = useState<number | undefined>();
   const svg = useRef<SVGSVGElement>(null);
-  if (series.length === 0) return <p className="muted">Aucune partie classée.</p>;
+  const t = useI18n();
+  if (series.length === 0) return <p className="muted">{t.dashboard.noRanked}</p>;
   const x = (i: number): number =>
     series.length === 1
       ? (PAD.l + W - PAD.r) / 2
@@ -290,7 +281,7 @@ function PlaceChart({
         ref={svg}
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label="Place finale de chaque partie classée, dans l’ordre chronologique"
+        aria-label={t.dashboard.placeChartLabel}
         onMouseMove={onMove}
         onMouseLeave={() => {
           setHover(undefined);
@@ -316,7 +307,7 @@ function PlaceChart({
       </svg>
       {h !== undefined && hover !== undefined && (
         <div className="tooltip" style={{ left: `${(x(hover) / W) * 100}%` }}>
-          <b>{h.place}e</b> · {date(h.startedAt)}
+          <b>{t.dashboard.place(h.place)}</b> · {date(t, h.startedAt)}
         </div>
       )}
     </div>
@@ -325,17 +316,14 @@ function PlaceChart({
 
 function DistributionChart({ counts }: { counts: readonly number[] }): React.JSX.Element {
   const [hover, setHover] = useState<number | undefined>();
+  const t = useI18n();
   const max = Math.max(1, ...counts);
   const bw = (W - PAD.l - PAD.r) / 8;
   const y = (n: number): number => H - PAD.b - (n / max) * (H - PAD.t - PAD.b);
   const total = counts.reduce((s, n) => s + n, 0);
   return (
     <div className="chart__box">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="Nombre de parties terminées à chaque place"
-      >
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t.dashboard.distChartLabel}>
         <line className="grid" x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} />
         {counts.map((n, i) => {
           const x0 = PAD.l + i * bw + 1;
@@ -367,8 +355,11 @@ function DistributionChart({ counts }: { counts: readonly number[] }): React.JSX
       </svg>
       {hover !== undefined && (
         <div className="tooltip" style={{ left: `${((PAD.l + (hover + 0.5) * bw) / W) * 100}%` }}>
-          {hover + 1}e : <b>{counts[hover]}</b> partie(s) ·{' '}
-          {pct(total === 0 ? undefined : (counts[hover] ?? 0) / total)}
+          {t.dashboard.placeGames(
+            hover + 1,
+            counts[hover] ?? 0,
+            pct(total === 0 ? undefined : (counts[hover] ?? 0) / total),
+          )}
         </div>
       )}
     </div>
@@ -390,18 +381,20 @@ function GamesView({
   onSelect: (id: number | undefined) => void;
   bridge: BgtBridge;
 }): React.JSX.Element {
+  const t = useI18n();
+  const d = t.dashboard;
   return (
     <div className="dash__games">
       <table className="browser__table dash__list">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Héros</th>
-            <th>Place</th>
-            <th>Tribus</th>
-            <th>Tours</th>
-            <th>Durée</th>
-            <th>MMR</th>
+            <th>{d.colDate}</th>
+            <th>{d.colHero}</th>
+            <th>{d.colPlace}</th>
+            <th>{t.browser.colTribes}</th>
+            <th>{d.colRounds}</th>
+            <th>{d.colDuration}</th>
+            <th>{d.colMmr}</th>
           </tr>
         </thead>
         <tbody>
@@ -417,14 +410,14 @@ function GamesView({
                 if (e.key === 'Enter') onSelect(g.id);
               }}
             >
-              <td>{date(g.startedAt)}</td>
+              <td>{date(t, g.startedAt)}</td>
               <td>{nameOf(names, g.heroBaseCardId)}</td>
               <td className="num">
-                {g.finalPlace ?? <span className="muted">{OUTCOME[g.outcome]}</span>}
+                {g.finalPlace ?? <span className="muted">{d.outcome[g.outcome]}</span>}
               </td>
-              <td className="muted">{g.tribes.map(tribe).join(', ') || '–'}</td>
+              <td className="muted">{g.tribes.map((x) => tribe(t, x)).join(', ') || '–'}</td>
               <td className="num">{g.rounds}</td>
-              <td className="num">{duration(g.durationMs)}</td>
+              <td className="num">{duration(t, g.durationMs)}</td>
               <td className="num">{g.mmr ?? '–'}</td>
             </tr>
           ))}
@@ -441,6 +434,8 @@ function GameDetail({ id, bridge }: { id: number; bridge: BgtBridge }): React.JS
   const [mmr, setMmr] = useState('');
   const [notes, setNotes] = useState('');
   const [tags, setTags] = useState('');
+  const t = useI18n();
+  const d = t.dashboard;
   useEffect(() => {
     void bridge.history.get(id).then((d) => {
       setData(d);
@@ -468,36 +463,36 @@ function GameDetail({ id, bridge }: { id: number; bridge: BgtBridge }): React.JS
     <section className="dash__detail">
       <h2>
         {nameOf(names, game.heroCardId)} —{' '}
-        {game.finalPlace === undefined ? OUTCOME[game.outcome] : `${game.finalPlace}e`}
+        {game.finalPlace === undefined ? d.outcome[game.outcome] : d.place(game.finalPlace)}
         <small>
           {' '}
-          · build {game.build ?? '?'} · {date(game.startedAt)}
+          · build {game.build ?? '?'} · {date(t, game.startedAt)}
         </small>
       </h2>
       <div className="dash__edit">
         <label>
-          MMR après la partie
+          {d.mmr}
           <input
             inputMode="numeric"
             value={mmr}
             onChange={(e) => {
               setMmr(e.target.value);
             }}
-            placeholder="saisie manuelle"
+            placeholder={d.mmrPlaceholder}
           />
         </label>
         <label>
-          Tags
+          {d.tags}
           <input
             value={tags}
             onChange={(e) => {
               setTags(e.target.value);
             }}
-            placeholder="séparés par des virgules"
+            placeholder={d.tagsPlaceholder}
           />
         </label>
         <label className="dash__notes">
-          Notes
+          {d.notes}
           <textarea
             value={notes}
             onChange={(e) => {
@@ -506,13 +501,13 @@ function GameDetail({ id, bridge }: { id: number; bridge: BgtBridge }): React.JS
             rows={2}
           />
         </label>
-        <button onClick={save}>Enregistrer</button>
+        <button onClick={save}>{d.save}</button>
       </div>
       {game.replay.length === 0 ? (
-        <p className="muted">Pas de replay pour cette partie.</p>
+        <p className="muted">{d.noReplay}</p>
       ) : (
         <>
-          <div className="dash__rounds" role="tablist" aria-label="Tours">
+          <div className="dash__rounds" role="tablist" aria-label={d.rounds}>
             {game.replay.map((x, i) => (
               <button
                 key={x.round}
@@ -534,18 +529,20 @@ function GameDetail({ id, bridge }: { id: number; bridge: BgtBridge }): React.JS
 }
 
 function RoundView({ r, names }: { r: ReplayRound; names: Names }): React.JSX.Element {
+  const d = useI18n().dashboard;
   return (
     <div className="dash__round">
       <p>
-        Tour <b>{r.round}</b> · taverne {r.techLevel ?? '?'} · PV {r.health ?? '?'}
-        {r.armor !== undefined && r.armor > 0 && ` +${r.armor}`} · triples {r.triples ?? 0}
+        {d.roundLine(r.round, String(r.techLevel ?? '?'), String(r.health ?? '?'))}
+        {r.armor !== undefined && r.armor > 0 && ` +${r.armor}`}
+        {d.triples(r.triples ?? 0)}
       </p>
       <div className="dash__boards">
-        <Board title="Ton plateau" minions={r.localBoard} names={names} />
+        <Board title={d.yourBoard} minions={r.localBoard} names={names} />
         <Board
           title={
             r.opponent === undefined
-              ? 'Adversaire'
+              ? d.opponent
               : `${nameOf(names, r.opponent.heroCardId)}${r.opponent.name === undefined ? '' : ` (${r.opponent.name})`}`
           }
           minions={r.opponent?.board ?? []}
@@ -565,6 +562,7 @@ function Board({
   minions: readonly VisibleMinion[];
   names: Names;
 }): React.JSX.Element {
+  const t = useI18n();
   return (
     <div className="board">
       <h3>{title}</h3>
@@ -577,8 +575,8 @@ function Board({
             </span>
             <span className="minion__kw">
               {m.keywords.map((k) => (
-                <abbr key={k} title={KEYWORD_LABELS[k].long}>
-                  {KEYWORD_LABELS[k].short}
+                <abbr key={k} title={t.keywords[k].long}>
+                  {t.keywords[k].short}
                 </abbr>
               ))}
             </span>
