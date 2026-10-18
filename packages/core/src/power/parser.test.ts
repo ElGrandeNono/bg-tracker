@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseLine } from '../log/line.js';
 import { gameModeOf } from '../bg/bgGame.js';
+import { tribesOfTags } from '../bg/tribes.js';
 import { Pipeline } from '../pipeline.js';
 import { parseEntityRef, PowerParser } from './parser.js';
 
@@ -143,5 +144,21 @@ describe('Pipeline (synthetic)', () => {
     expect(pipe.state.truncated).toBe(true);
     expect(pipe.state.entities.get(4)?.tags.TURN).toBe(5);
     expect(pipe.bg.round).toBe(3);
+  });
+});
+
+describe('tribus (synthetic)', () => {
+  it('fusionne CARDRACE et BACON_SUBSET_ avec leurs orthographes observées', () => {
+    expect(
+      tribesOfTags({
+        CARDRACE: 'QUILBOAR',
+        BACON_SUBSET_QUILLBOAR: 1,
+        BACON_SUBSET_PIRATE: 1,
+      }).sort(),
+    ).toEqual(['PIRATE', 'QUILLBOAR']);
+    expect(tribesOfTags({ CARDRACE: 'MECHANICAL' })).toEqual(['MECH']);
+    expect(tribesOfTags({ CARDRACE: 'ELEMENTAL' })).toEqual(['ELEMENTALS']);
+    expect(tribesOfTags({ CARDRACE: 'ABERRATION' })).toEqual(['ABERRATION']);
+    expect(tribesOfTags({ CARDRACE: 'ALL', BACON_SUBSET_DEMON: 0 })).toEqual([]);
   });
 });

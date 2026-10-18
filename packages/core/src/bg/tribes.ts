@@ -17,6 +17,40 @@ export interface TribeSightings {
 
 export const emptyTribeSightings: TribeSightings = { cards: {} };
 
+/**
+ * Le log nomme les tribus de deux façons, avec des orthographes différentes :
+ * `BACON_SUBSET_<X>=1` (plusieurs par serviteur possible) et `CARDRACE=<X>` (une valeur).
+ * Correspondances OBSERVÉES dans les fixtures (F2 et partie aux Aberrations du 18/10/2026) :
+ * MECHANICAL ↔ MECH, ELEMENTAL ↔ ELEMENTALS, QUILBOAR (un L) ↔ QUILLBOAR (deux L) ;
+ * MURLOC, DRAGON, DEMON, NAGA, PIRATE, UNDEAD, ABERRATION sont identiques des deux côtés.
+ * La forme canonique est celle de `BACON_SUBSET_`. Une valeur inconnue est gardée telle quelle.
+ */
+const CARDRACE_TO_SUBSET: Readonly<Record<string, string>> = {
+  MECHANICAL: 'MECH',
+  ELEMENTAL: 'ELEMENTALS',
+  QUILBOAR: 'QUILLBOAR',
+};
+
+/** `CARDRACE` sans tribu réelle (`ALL` = serviteur de toutes les tribues, `INVALID`). */
+const NON_TRIBE_RACES = new Set(['ALL', 'INVALID', 'NONE', 'BLANK']);
+
+export function canonicalTribe(name: string): string {
+  return CARDRACE_TO_SUBSET[name] ?? name;
+}
+
+/** Tribus d'un serviteur, d'après ses tags `BACON_SUBSET_*` et `CARDRACE`, sans doublon. */
+export function tribesOfTags(tags: Readonly<Record<string, number | string>>): string[] {
+  const out = new Set<string>();
+  for (const [k, v] of Object.entries(tags)) {
+    if (k.startsWith(SUBSET_TAG_PREFIX) && v === 1) {
+      out.add(canonicalTribe(k.slice(SUBSET_TAG_PREFIX.length)));
+    }
+  }
+  const race = tags.CARDRACE;
+  if (typeof race === 'string' && !NON_TRIBE_RACES.has(race)) out.add(canonicalTribe(race));
+  return [...out];
+}
+
 export interface TribeOptions {
   /** Nombre de tribus par lobby. 5 dans les parties observées ; à confirmer par saison. */
   readonly expectedTribes: number;
