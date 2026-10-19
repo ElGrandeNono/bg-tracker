@@ -93,6 +93,7 @@ const fr = {
     healthArmor: (h: number, a: number) => `${h} PV + ${a} armure`,
     finalPlace: 'Place finale',
     availableTribes: 'Tribus du lobby',
+    waiting: 'BG Tracker · en attente d’une partie Battlegrounds',
   },
   sim: {
     win: 'V',
@@ -393,6 +394,7 @@ const en: Messages = {
     healthArmor: (h, a) => `${h} health + ${a} armor`,
     finalPlace: 'Final place',
     availableTribes: 'Lobby tribes',
+    waiting: 'BG Tracker · waiting for a Battlegrounds game',
   },
   sim: {
     win: 'W',

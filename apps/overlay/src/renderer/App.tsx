@@ -641,39 +641,40 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
               ))}
             </ul>
           )}
-          {solo &&
-            panel(
-              'status',
-              <div className="status">
-                {s.bar && inProgress && <TopBar p={payload} now={now} />}
-                <div className="status__buttons">
-                  <OverlayButton
-                    label={t.buttons.browser}
-                    onClick={() => {
-                      bridge.openBrowser();
-                    }}
-                  >
-                    <Icon name="browser" />
-                  </OverlayButton>
-                  <OverlayButton
-                    label={t.buttons.dashboard}
-                    onClick={() => {
-                      bridge.openDashboard();
-                    }}
-                  >
-                    <Icon name="dashboard" />
-                  </OverlayButton>
-                  <OverlayButton
-                    label={t.buttons.settings}
-                    onClick={() => {
-                      bridge.openSettings();
-                    }}
-                  >
-                    <Icon name="settings" />
-                  </OverlayButton>
-                </div>
-              </div>,
-            )}
+          {/* Toujours affiché (même dans les menus) : on voit que l'overlay tourne, boutons compris. */}
+          {panel(
+            'status',
+            <div className="status">
+              {solo && s.bar && inProgress && <TopBar p={payload} now={now} />}
+              {!view.isBattlegrounds && <span className="status__idle">{t.lobby.waiting}</span>}
+              <div className="status__buttons">
+                <OverlayButton
+                  label={t.buttons.browser}
+                  onClick={() => {
+                    bridge.openBrowser();
+                  }}
+                >
+                  <Icon name="browser" />
+                </OverlayButton>
+                <OverlayButton
+                  label={t.buttons.dashboard}
+                  onClick={() => {
+                    bridge.openDashboard();
+                  }}
+                >
+                  <Icon name="dashboard" />
+                </OverlayButton>
+                <OverlayButton
+                  label={t.buttons.settings}
+                  onClick={() => {
+                    bridge.openSettings();
+                  }}
+                >
+                  <Icon name="settings" />
+                </OverlayButton>
+              </div>
+            </div>,
+          )}
           {solo &&
             inProgress &&
             s.simulation &&
