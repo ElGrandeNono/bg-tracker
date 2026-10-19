@@ -93,6 +93,16 @@ export interface VisibleLocal {
   readonly armor: number | undefined;
   /** Durée du recrutement en cours, en secondes (`TIMEOUT` sur le joueur local). */
   readonly turnTimeoutSec: number | undefined;
+  /**
+   * Rafraîchissements gratuits : `BACON_FREE_REFRESH_COUNT` sur le bouton Actualiser du joueur
+   * local (`TB_BaconShop_8p_Reroll_Button`, en PLAY), vérifié sur la fixture complète (2 → 0).
+   */
+  readonly freeRefreshes: number | undefined;
+  /**
+   * Bonus des gemmes de sang : `BACON_BLOODGEMBUFFATKVALUE` / `…HEALTHVALUE` sur l'entité Player
+   * locale (noms de tags vus dans un log réel du 18/10/2026 ; valeur affichée telle quelle).
+   */
+  readonly bloodGemBuff: { readonly attack: number; readonly health: number } | undefined;
 }
 
 export type ViewWarning = 'truncated' | 'interrupted' | 'abandoned';
@@ -128,6 +138,8 @@ export interface VisibleView<V extends SeasonViewBase = SeasonViewBase> {
    * en combat, le plateau figé au début du combat.
    */
   readonly localBoard: readonly VisibleMinion[];
+  /** Boutique de Bob affichée (serviteurs du dummy en jeu pendant le recrutement), sinon vide. */
+  readonly shop: readonly VisibleMinion[];
   /** Combat en cours dont les plateaux sont connus (affichés à l'écran). */
   readonly currentCombat:
     | {
@@ -166,15 +178,40 @@ function upgradeCost(state: GameState, localId: number | undefined): number | un
   return best?.cost;
 }
 
+/** `BACON_FREE_REFRESH_COUNT` du bouton Actualiser local le plus récent, en PLAY. */
+function freeRefreshes(state: GameState, localId: number | undefined): number | undefined {
+  if (localId === undefined) return undefined;
+  let best: { id: number; n: number } | undefined;
+  for (const e of state.entities.values()) {
+    if (e.cardId !== 'TB_BaconShop_8p_Reroll_Button') continue;
+    if (numTag(e, 'CONTROLLER') !== localId || tagOf(e, 'ZONE') !== 'PLAY') continue;
+    if (best === undefined || e.id > best.id) {
+      best = { id: e.id, n: numTag(e, 'BACON_FREE_REFRESH_COUNT') ?? 0 };
+    }
+  }
+  return best?.n;
+}
+
 /** Serviteurs du joueur local en jeu (recrutement) ou plateau figé du combat en cours. */
 function localBoard(bg: BgGame, state: GameState): VisibleMinion[] {
   const last = bg.combats.at(-1);
   if (last !== undefined && last.endMs === undefined) return last.localBoard.map(toVisibleMinion);
-  const localId = localPlayer(state)?.playerId;
+  return minionsInPlay(state, localPlayer(state)?.playerId);
+}
+
+/** Boutique affichée : serviteurs du dummy en jeu, hors combat (la boutique n'est pas visible). */
+function shop(bg: BgGame, state: GameState): VisibleMinion[] {
+  const last = bg.combats.at(-1);
+  if ((last !== undefined && last.endMs === undefined) || bg.phase !== 'recruit') return [];
+  return minionsInPlay(state, dummyPlayer(state)?.playerId);
+}
+
+function minionsInPlay(state: GameState, controller: number | undefined): VisibleMinion[] {
+  if (controller === undefined) return [];
   const out: { pos: number; m: VisibleMinion }[] = [];
   for (const e of state.entities.values()) {
     if (e.cardId === '' || tagOf(e, 'CARDTYPE') !== 'MINION') continue;
-    if (numTag(e, 'CONTROLLER') !== localId || tagOf(e, 'ZONE') !== 'PLAY') continue;
+    if (numTag(e, 'CONTROLLER') !== controller || tagOf(e, 'ZONE') !== 'PLAY') continue;
     const health = numTag(e, 'HEALTH');
     out.push({
       pos: numTag(e, 'ZONE_POSITION') ?? 0,
@@ -314,12 +351,21 @@ export function buildVisibleView<V extends SeasonViewBase = SeasonViewBase>(
       health: remainingHealth(local),
       armor: local?.armor,
       turnTimeoutSec: numTag(localEntity, 'TIMEOUT'),
+      freeRefreshes: freeRefreshes(state, localSlot?.playerId),
+      bloodGemBuff:
+        localEntity === undefined
+          ? undefined
+          : {
+              attack: numTag(localEntity, 'BACON_BLOODGEMBUFFATKVALUE') ?? 0,
+              health: numTag(localEntity, 'BACON_BLOODGEMBUFFHEALTHVALUE') ?? 0,
+            },
     },
     players,
     tribes: estimateLobbyTribes(bg.tribes),
     warnings,
     poolSightings: poolSightings(bg, state, players),
     localBoard: localBoard(bg, state),
+    shop: live ? shop(bg, state) : [],
     currentCombat:
       current !== undefined && current.endMs === undefined && current.boardsLocked && live
         ? {

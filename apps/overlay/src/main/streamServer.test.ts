@@ -31,6 +31,7 @@ async function payloadFromFixture(): Promise<OverlayPayload> {
     timerEndsAt: undefined,
     pool: { tiers: [], byTribe: {}, lobbyComplete: true, unverifiedRules: [], cards: {} },
     combatSim: undefined,
+    tavernBuffs: [],
   };
 }
 

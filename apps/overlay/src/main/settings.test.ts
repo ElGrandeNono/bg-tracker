@@ -14,15 +14,16 @@ describe('réglages de l’overlay', () => {
       scale: 0.1,
       locked: false,
       theme: 'light',
-      panels: { bar: { x: -1, y: 0.5 }, lobby: { x: 2, y: 'a' } },
+      panels: { status: { x: -1, y: 0.5 }, players: { x: 2, y: 'a' }, bar: { x: 0.1, y: 0.1 } },
       backdrop: true,
     });
     expect(s.opacity).toBe(1);
     expect(s.scale).toBe(0.6);
     expect(s.locked).toBe(true);
     expect(s.theme).toBe('light');
-    expect(s.panels.bar).toEqual({ x: 0, y: 0.5 });
-    expect(s.panels.lobby).toEqual({ x: 0.98, y: DEFAULT_SETTINGS.panels.lobby.y });
+    expect(s.panels.status).toEqual({ x: 0, y: 0.5 });
+    expect(s.panels.players).toEqual({ x: 0.98, y: DEFAULT_SETTINGS.panels.players.y });
+    expect(s.panels.sim).toEqual(DEFAULT_SETTINGS.panels.sim); // ancienne clé « bar » ignorée
     expect(s.backdrop).toBe(false);
     expect(sanitizeSettings({ hidden: true }).hidden).toBe(false);
   });
@@ -31,7 +32,7 @@ describe('réglages de l’overlay', () => {
     const cur = {
       ...DEFAULT_SETTINGS,
       locked: false,
-      panels: { ...DEFAULT_SETTINGS.panels, bar: { x: 0.5, y: 0.5 } },
+      panels: { ...DEFAULT_SETTINGS.panels, status: { x: 0.5, y: 0.5 } },
     };
     const s = applyPatch(cur, {
       language: 'en',
@@ -49,7 +50,7 @@ describe('réglages de l’overlay', () => {
     expect(s.streamer.port).toBe(1024); // ports privilégiés refusés
     expect(s.opacity).toBe(1);
     expect(s.locked).toBe(false); // le patch ne touche pas au verrouillage
-    expect(s.panels.bar).toEqual({ x: 0.5, y: 0.5 });
+    expect(s.panels.status).toEqual({ x: 0.5, y: 0.5 });
     expect(applyPatch(cur, { resetPanels: true }).panels).toEqual(DEFAULT_SETTINGS.panels);
   });
 

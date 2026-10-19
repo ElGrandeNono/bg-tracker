@@ -168,7 +168,7 @@ small {
 /* ---- lobby */
 
 .lobby {
-  width: 19.5rem;
+  width: 17rem;
   padding: 0.45rem;
 }
 
@@ -248,12 +248,69 @@ small {
   color: var(--danger);
 }
 
+/* Tribus du lobby : illustration ronde (HearthstoneJSON) ou insigne de repli, nom dessous. */
 .tribes {
-  margin: 0.45rem 0.3rem 0;
-  padding-top: 0.4rem;
-  border-top: 1px solid var(--line);
-  font-size: 0.88em;
+  margin: 0 0 0.45rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.tribes__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.85em;
+  font-weight: 650;
+  text-align: center;
   color: var(--muted);
+}
+
+.tribes__icons {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tribe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 2.9rem;
+}
+
+.tribe__art,
+.tribe__badge {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+
+.tribe__badge {
+  display: grid;
+  place-items: center;
+  background: var(--bg-strong);
+  font-weight: 700;
+}
+
+.tribe--probable .tribe__art,
+.tribe--probable .tribe__badge {
+  border-style: dashed;
+  border-color: var(--muted);
+  opacity: 0.75;
+}
+
+.tribe__name {
+  margin-top: 0.15rem;
+  font-size: 0.68em;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .pool {
@@ -271,41 +328,61 @@ small {
   color: var(--accent);
 }
 
+/* Simulation (haut, milieu) : létal · victoire · égalité · défaite · létal. */
 .sim {
-  margin: 0.35rem 0 0.45rem;
+  padding: 0.3rem 0.45rem 0.35rem;
+  text-align: center;
 }
 
-.sim__bar {
+.simgrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(3.4rem, auto));
+  gap: 0.15rem;
+}
+
+.simgrid__cell {
   display: flex;
-  height: 6px;
-  border-radius: 3px;
-  overflow: hidden;
-  background: var(--line);
+  flex-direction: column;
+  padding: 0.1rem 0.3rem;
+  border-radius: 6px;
 }
 
-.sim__win {
-  background: var(--win);
+.simgrid__label {
+  font-size: 0.7em;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
-.sim__tie {
-  background: var(--muted);
+.simgrid__value {
+  font-size: 1.15em;
 }
 
-.sim__loss {
-  background: var(--loss);
-}
-
-.sim__line {
-  margin: 0.25rem 0 0;
-  font-size: 0.9em;
-}
-
-.sim__w {
+.simgrid__cell--win .simgrid__label,
+.simgrid__cell--win .simgrid__value {
   color: var(--win);
 }
 
-.sim__l {
+.simgrid__cell--loss .simgrid__label,
+.simgrid__cell--loss .simgrid__value {
   color: var(--loss);
+}
+
+.simgrid__cell--lethal .simgrid__value {
+  color: var(--muted);
+  font-size: 0.95em;
+}
+
+.simgrid__cell--win,
+.simgrid__cell--loss {
+  background: var(--bg-strong);
+}
+
+.sim__caption {
+  margin: 0.2rem 0 0;
+  font-size: 0.78em;
+  color: var(--muted);
 }
 
 .sim__approx {
@@ -888,4 +965,64 @@ small {
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 0 0.35rem;
+}
+
+/* ---- état (haut, droite) et boutons de l'overlay */
+
+.status {
+  display: flex;
+  align-items: center;
+}
+
+.status__buttons {
+  display: flex;
+  gap: 0.2rem;
+  padding: 0.25rem 0.35rem;
+}
+
+.ov-button {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-strong);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.ov-button:hover,
+.ov-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: currentColor;
+}
+
+/* ---- compteurs (à droite du pouvoir héroïque) */
+
+.counters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+}
+
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.counter .icon {
+  color: var(--accent);
 }

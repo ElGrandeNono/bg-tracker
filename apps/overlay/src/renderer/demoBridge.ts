@@ -87,6 +87,14 @@ export function demoBridge(): BgtBridge {
     openDashboard() {
       window.open('./#dashboard', '_blank');
     },
+    setInteractive() {},
+    onTribeArt(l) {
+      void fetch('./demo-tribe-art.json')
+        .then((r) => r.json() as Promise<Record<string, string>>)
+        .then(l)
+        .catch(() => undefined);
+      return () => undefined;
+    },
     openSettings() {
       window.open('./#settings', '_blank');
     },

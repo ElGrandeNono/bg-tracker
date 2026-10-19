@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -11,12 +13,72 @@ import type {
   BgtBridge,
   OverlayPayload,
   OverlaySettings,
+  PanelId,
   PanelPosition,
 } from '../shared/payload.js';
 import { useI18n, type Messages } from './i18n.js';
 import { useAlerts } from './alerts.js';
 
 type Names = OverlayPayload['names'];
+
+/** Pont vers le processus principal et images des tribus, pour les composants profonds. */
+const BridgeContext = createContext<BgtBridge | undefined>(undefined);
+const TribeArtContext = createContext<Readonly<Record<string, string>>>({});
+
+/**
+ * Bouton de l'overlay. La fenêtre étant transparente aux clics, elle ne capte la souris que
+ * pendant le survol d'un bouton (voir CHANNELS.setInteractive).
+ */
+function OverlayButton(props: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  const bridge = useContext(BridgeContext);
+  useEffect(
+    () => () => {
+      bridge?.setInteractive(false);
+    },
+    [bridge],
+  );
+  return (
+    <button
+      type="button"
+      className="ov-button"
+      title={props.label}
+      aria-label={props.label}
+      onMouseEnter={() => {
+        bridge?.setInteractive(true);
+      }}
+      onMouseLeave={() => {
+        bridge?.setInteractive(false);
+      }}
+      onClick={props.onClick}
+    >
+      {props.children}
+    </button>
+  );
+}
+
+/** Pictogrammes dessinés ici (SVG), aucun asset externe. */
+const ICONS = {
+  browser: 'M3 4h14v2H3zm0 5h14v2H3zm0 5h9v2H3z',
+  dashboard: 'M3 16h3V9H3zm5 0h3V4H8zm5 0h3v-5h-3z',
+  settings:
+    'M10 6.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM9 1h2l.4 2.2 1.6.7 1.9-1.3 1.4 1.4-1.3 1.9.7 1.6L18 9v2l-2.2.4-.7 1.6 1.3 1.9-1.4 1.4-1.9-1.3-1.6.7L11 19H9l-.4-2.2-1.6-.7-1.9 1.3-1.4-1.4 1.3-1.9-.7-1.6L2 11V9l2.2-.4.7-1.6-1.3-1.9 1.4-1.4 1.9 1.3 1.6-.7z',
+  refresh: 'M10 3a7 7 0 0 1 6.3 4H18V2h-1.5v2.3A8.5 8.5 0 1 0 18.5 10H17a7 7 0 1 1-7-7z',
+  gem: 'M5 3h10l3 5-8 10L2 8z',
+  spell: 'M4 3h9l3 3v11H4zm2 4v2h8V7zm0 4v2h8v-2z',
+  tavern: 'M3 8l7-5 7 5v1H3zm1 2h12v7H4zm3 2v5h2v-5zm4 0v5h2v-5z',
+} as const;
+
+function Icon({ name }: { name: keyof typeof ICONS }): React.JSX.Element {
+  return (
+    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d={ICONS[name]} />
+    </svg>
+  );
+}
 
 const nameOf = (names: Names, id: string | undefined): string =>
   id === undefined ? '?' : (names[id] ?? id);
@@ -228,10 +290,9 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
   const t = useI18n().lobby;
   const focus =
     view.players.find((x) => x.isCurrentOpponent) ?? view.players.find((x) => x.isNextOpponent);
-  const showSim =
-    s.simulation && p.combatSim !== undefined && p.combatSim.opponentPlayerId === focus?.playerId;
   return (
     <div className="lobby">
+      {s.tribes && <TribeIcons view={view} />}
       {s.lobby && (
         <ol className="rows">
           {view.players.map((pl) => (
@@ -239,18 +300,16 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
           ))}
         </ol>
       )}
-      {!settings.compact && s.tribes && <Tribes view={view} />}
       {!settings.compact && s.pool && <PoolSummary p={p} />}
       {!settings.compact && s.season && <SeasonPanel p={p} />}
-      {focus !== undefined && (s.opponentBoard || showSim) && (
+      {focus !== undefined && s.opponentBoard && (
         <section className="board">
           <h3>
             {focus.isCurrentOpponent ? t.opponent : t.nextOpponent}
             {t.colon}
             {nameOf(names, focus.heroCardId)}
           </h3>
-          {showSim && <CombatSim sim={p.combatSim} />}
-          {!s.opponentBoard ? null : focus.lastBoard === undefined ? (
+          {focus.lastBoard === undefined ? (
             <p className="muted">{t.boardNeverSeen}</p>
           ) : (
             <>
@@ -270,49 +329,144 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
 
 const pctOf = (x: number): string => `${Math.round(x * 100)} %`;
 
-/** Probabilités de combat (Monte Carlo sur les plateaux affichés). */
-function CombatSim({ sim }: { sim: NonNullable<OverlayPayload['combatSim']> }): React.JSX.Element {
-  const s = sim.summary;
+/**
+ * Probabilités de combat (Monte Carlo sur les plateaux affichés), en haut au milieu :
+ * létal (toi sur lui) · victoire · égalité · défaite · létal (lui sur toi).
+ */
+function CombatSim({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+  const sim = p.combatSim;
   const all = useI18n();
+  if (sim === undefined) return null;
+  const s = sim.summary;
   const t = all.sim;
   const avg = (x: number): string => x.toLocaleString(all.locale, { maximumFractionDigits: 1 });
   const range = (d: typeof s.damageToA): string =>
     d === undefined ? '–' : `${d.min}–${d.max} (${t.avg} ${avg(d.avg)})`;
+  const opponent = p.view.players.find((x) => x.playerId === sim.opponentPlayerId);
+  const name = opponent === undefined ? '?' : nameOf(p.names, opponent.heroCardId);
+  const cell = (label: string, value: number, cls: string): React.JSX.Element => (
+    <div className={`simgrid__cell ${cls}`}>
+      <span className="simgrid__label">{label}</span>
+      <b className="simgrid__value">{pctOf(value)}</b>
+    </div>
+  );
   return (
-    <div className="sim" title={t.hint(s.iterations, sim.final)}>
-      <div className="sim__bar" aria-hidden="true">
-        <span className="sim__win" style={{ width: pctOf(s.win) }} />
-        <span className="sim__tie" style={{ width: pctOf(s.tie) }} />
-        <span className="sim__loss" style={{ width: pctOf(s.loss) }} />
+    <div
+      className="sim"
+      title={`${t.hint(s.iterations, sim.final)} · ${t.damage(range(s.damageToB), range(s.damageToA))}`}
+    >
+      <div className="simgrid">
+        {cell(t.lethal, s.lethalForA ?? 0, 'simgrid__cell--lethal')}
+        {cell(t.winLong, s.win, 'simgrid__cell--win')}
+        {cell(t.tieLong, s.tie, 'simgrid__cell--tie')}
+        {cell(t.lossLong, s.loss, 'simgrid__cell--loss')}
+        {cell(t.lethal, s.lethalForB ?? 0, 'simgrid__cell--lethal')}
       </div>
-      <p className="sim__line">
-        <b className="sim__w">
-          {t.win} {pctOf(s.win)}
-        </b>{' '}
-        · {t.tie} {pctOf(s.tie)} ·{' '}
-        <b className="sim__l">
-          {t.loss} {pctOf(s.loss)}
-        </b>
-        {(s.lethalForA ?? 0) > 0 && (
-          <>
-            {' '}
-            · {t.lethalThem} {pctOf(s.lethalForA ?? 0)}
-          </>
-        )}
-        {(s.lethalForB ?? 0) > 0 && (
-          <>
-            {' '}
-            ·{' '}
-            <b className="sim__l">
-              {t.lethalYou} {pctOf(s.lethalForB ?? 0)}
-            </b>
-          </>
-        )}
+      <p className="sim__caption">
+        {sim.context === 'combat' ? t.current(name) : t.next(name, sim.boardRound)}
+        {s.approximate && <span className="sim__approx"> ≈</span>}
       </p>
-      <p className="muted">{t.damage(range(s.damageToB), range(s.damageToA))}</p>
-      {sim.context === 'nextOpponent' && <p className="muted">{t.fromBoard(sim.boardRound)}</p>}
       {s.approximate && <p className="sim__approx">{t.approximate(s.unsupportedCards.length)}</p>}
     </div>
+  );
+}
+
+/** Icônes des tribus du lobby (identifiées, puis probables en pointillés avec « ? »). */
+function TribeIcons({ view }: { view: VisibleView }): React.JSX.Element {
+  const m = useI18n();
+  const art = useContext(TribeArtContext);
+  const t = view.tribes;
+  const probable = t.tribes
+    .filter((x) => !x.identified && x.distinctCards >= 2)
+    .slice(0, Math.max(0, t.expected - t.identified.length));
+  const items = [
+    ...t.identified.map((tribe) => ({ tribe, sure: true })),
+    ...probable.map((x) => ({ tribe: x.tribe, sure: false })),
+  ];
+  const label = (x: string): string => m.tribes[x] ?? x;
+  return (
+    <section className="tribes" title={m.lobby.tribesHint}>
+      <h3 className="tribes__title">
+        {m.lobby.availableTribes} {t.identified.length}/{t.expected}
+      </h3>
+      <ul className="tribes__icons">
+        {items.map(({ tribe, sure }) => {
+          const src = art[tribe];
+          return (
+            <li
+              key={tribe}
+              className={`tribe ${sure ? '' : 'tribe--probable'}`}
+              title={sure ? label(tribe) : `${label(tribe)} ?`}
+            >
+              {src === undefined ? (
+                <span className="tribe__badge">{label(tribe).slice(0, 2)}</span>
+              ) : (
+                <img className="tribe__art" src={src} alt="" />
+              )}
+              <span className="tribe__name">
+                {label(tribe)}
+                {sure ? '' : ' ?'}
+              </span>
+            </li>
+          );
+        })}
+        {items.length === 0 && <li className="muted">…</li>}
+      </ul>
+    </section>
+  );
+}
+
+/** Compteurs à droite du pouvoir héroïque (recrutement uniquement). */
+function Counters({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+  const m = useI18n();
+  const c = m.counters;
+  const l = p.view.local;
+  const spells = p.view.season?.counters.tavernSpellBuff;
+  const items: { key: string; icon: keyof typeof ICONS; value: string; hint: string }[] = [];
+  if (l.freeRefreshes !== undefined && l.freeRefreshes > 0) {
+    items.push({
+      key: 'r',
+      icon: 'refresh',
+      value: String(l.freeRefreshes),
+      hint: c.freeRefresh(l.freeRefreshes),
+    });
+  }
+  const gem = l.bloodGemBuff;
+  if (gem !== undefined && (gem.attack > 0 || gem.health > 0)) {
+    items.push({
+      key: 'g',
+      icon: 'gem',
+      value: `+${gem.attack}/+${gem.health}`,
+      hint: c.bloodGem(gem.attack, gem.health),
+    });
+  }
+  if (spells !== undefined && (spells.attack > 0 || spells.health > 0)) {
+    items.push({
+      key: 's',
+      icon: 'spell',
+      value: `+${spells.attack}/+${spells.health}`,
+      hint: c.spells(spells.attack, spells.health),
+    });
+  }
+  for (const b of p.tavernBuffs) {
+    const tribe = b.tribe === 'ALL' ? c.all : (m.tribes[b.tribe] ?? b.tribe);
+    items.push({
+      key: `t-${b.tribe}`,
+      icon: 'tavern',
+      value: `${b.tribe === 'ALL' ? '' : `${tribe.slice(0, 4)}. `}+${b.attack}/+${b.health}`,
+      hint: c.tavern(tribe, b.attack, b.health),
+    });
+  }
+  if (items.length === 0) return null;
+  return (
+    <ul className="counters">
+      {items.map((x) => (
+        <li key={x.key} className="counter" title={x.hint} aria-label={x.hint}>
+          <Icon name={x.icon} />
+          <b>{x.value}</b>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -366,12 +520,7 @@ function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   }
   const c = s.counters;
   const counters: string[] = [];
-  if (
-    c.tavernSpellBuff !== undefined &&
-    (c.tavernSpellBuff.attack > 0 || c.tavernSpellBuff.health > 0)
-  ) {
-    counters.push(t.spells(c.tavernSpellBuff.attack, c.tavernSpellBuff.health));
-  }
+
   if (c.extraGoldNextTurn !== undefined && c.extraGoldNextTurn > 0)
     counters.push(t.extraGold(c.extraGoldNextTurn));
   if (c.oldGod !== undefined) counters.push(t.deity(c.oldGod.attack, c.oldGod.health));
@@ -398,25 +547,6 @@ function PoolSummary({ p }: { p: OverlayPayload }): React.JSX.Element | null {
           {x.tier} <b>{Math.round((x.remaining / Math.max(1, x.total)) * 100)}%</b>{' '}
         </span>
       ))}
-    </p>
-  );
-}
-
-function Tribes({ view }: { view: VisibleView }): React.JSX.Element {
-  const t = view.tribes;
-  const m = useI18n();
-  // Tribus identifiées, puis les plus vues (au moins 2 cartes distinctes) marquées « ? ».
-  const probable = t.tribes
-    .filter((x) => !x.identified && x.distinctCards >= 2)
-    .slice(0, Math.max(0, t.expected - t.identified.length));
-  const label = (x: string): string => m.tribes[x] ?? x;
-  return (
-    <p className="tribes" title={m.lobby.tribesHint}>
-      {m.lobby.tribes} {t.identified.length}/{t.expected}
-      {m.lobby.colon}
-      {t.identified.length + probable.length === 0
-        ? '…'
-        : [...t.identified.map(label), ...probable.map((x) => `${label(x.tribe)} ?`)].join(', ')}
     </p>
   );
 }
@@ -467,6 +597,8 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
         bridge.rendered();
       });
   }, [bridge, payload]);
+  const [tribeArt, setTribeArt] = useState<Readonly<Record<string, string>>>({});
+  useEffect(() => bridge.onTribeArt(setTribeArt), [bridge]);
   const now = useNow(payload?.timerEndsAt !== undefined);
   const t = useI18n();
   const toasts = useAlerts(payload, now, t);
@@ -483,45 +615,85 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
     '--scale': settings.scale,
   } as CSSProperties;
 
+  const s = settings.sections;
+  const panel = (id: PanelId, children: React.ReactNode): React.JSX.Element => (
+    <Panel id={id} position={settings.panels[id]} locked={settings.locked} onMove={onMove}>
+      {children}
+    </Panel>
+  );
+  const inProgress = view.outcome !== 'finished';
+  const showCounters =
+    s.counters && inProgress && view.phase === 'recruit' && view.local.techLevel !== undefined;
+
   return (
-    <div
-      className={`overlay theme-${settings.theme} ${settings.backdrop ? 'overlay--backdrop' : ''}`}
-      style={rootStyle}
-      hidden={settings.hidden}
-    >
-      <Notices p={payload} />
-      {toasts.length > 0 && (
-        <ul className="toasts" role="status" aria-live="polite">
-          {toasts.map((x) => (
-            <li key={x.id}>{x.text}</li>
-          ))}
-        </ul>
-      )}
-      {solo && view.outcome !== 'finished' && (
-        <>
-          {settings.sections.bar && (
-            <Panel id="bar" position={settings.panels.bar} locked={settings.locked} onMove={onMove}>
-              <TopBar p={payload} now={now} />
-            </Panel>
+    <BridgeContext.Provider value={bridge}>
+      <TribeArtContext.Provider value={tribeArt}>
+        <div
+          className={`overlay theme-${settings.theme} ${settings.backdrop ? 'overlay--backdrop' : ''}`}
+          style={rootStyle}
+          hidden={settings.hidden}
+        >
+          <Notices p={payload} />
+          {toasts.length > 0 && (
+            <ul className="toasts" role="status" aria-live="polite">
+              {toasts.map((x) => (
+                <li key={x.id}>{x.text}</li>
+              ))}
+            </ul>
           )}
-          <Panel
-            id="lobby"
-            position={settings.panels.lobby}
-            locked={settings.locked}
-            onMove={onMove}
-          >
-            <Lobby p={payload} />
-          </Panel>
-        </>
-      )}
-      {solo && view.outcome === 'finished' && (
-        <Panel id="lobby" position={settings.panels.lobby} locked={settings.locked} onMove={onMove}>
-          <div className="final">
-            {t.lobby.finalPlace} <b>{view.finalPlace ?? '?'}</b>
-          </div>
-          <Lobby p={payload} />
-        </Panel>
-      )}
-    </div>
+          {solo &&
+            panel(
+              'status',
+              <div className="status">
+                {s.bar && inProgress && <TopBar p={payload} now={now} />}
+                <div className="status__buttons">
+                  <OverlayButton
+                    label={t.buttons.browser}
+                    onClick={() => {
+                      bridge.openBrowser();
+                    }}
+                  >
+                    <Icon name="browser" />
+                  </OverlayButton>
+                  <OverlayButton
+                    label={t.buttons.dashboard}
+                    onClick={() => {
+                      bridge.openDashboard();
+                    }}
+                  >
+                    <Icon name="dashboard" />
+                  </OverlayButton>
+                  <OverlayButton
+                    label={t.buttons.settings}
+                    onClick={() => {
+                      bridge.openSettings();
+                    }}
+                  >
+                    <Icon name="settings" />
+                  </OverlayButton>
+                </div>
+              </div>,
+            )}
+          {solo &&
+            inProgress &&
+            s.simulation &&
+            payload.combatSim !== undefined &&
+            panel('sim', <CombatSim p={payload} />)}
+          {solo &&
+            panel(
+              'players',
+              <>
+                {!inProgress && (
+                  <div className="final">
+                    {t.lobby.finalPlace} <b>{view.finalPlace ?? '?'}</b>
+                  </div>
+                )}
+                <Lobby p={payload} />
+              </>,
+            )}
+          {solo && showCounters && panel('counters', <Counters p={payload} />)}
+        </div>
+      </TribeArtContext.Provider>
+    </BridgeContext.Provider>
   );
 }

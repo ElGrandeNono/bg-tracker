@@ -29,6 +29,7 @@ const SECTIONS: readonly (keyof SectionVisibility)[] = [
   'season',
   'simulation',
   'opponentBoard',
+  'counters',
 ];
 const ALERTS: readonly (keyof AlertSettings)[] = [
   'turnStart',

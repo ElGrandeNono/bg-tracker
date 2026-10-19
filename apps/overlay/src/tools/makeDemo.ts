@@ -6,6 +6,8 @@ import { GameRecorder, HistoryStore } from '@bgt/history';
 import { buildPoolCatalog, loadCardDb, type CardDb } from '@bgt/data';
 import { simulate } from '@bgt/sim';
 import { buildSimRequest } from '../main/combatSim.js';
+import { tavernBuffs } from '../main/tavernBuffs.js';
+import { loadTribeArt } from '../main/tribeArt.js';
 import {
   currentPoolRules as S14_POOL_RULES,
   currentSeason,
@@ -104,10 +106,22 @@ const frames: OverlayPayload[] = views.map((view) => ({
   timerEndsAt: undefined,
   pool: catalog.length === 0 ? undefined : poolPayload(view, catalog, S14_POOL_RULES),
   combatSim: demoSim(view),
+  tavernBuffs: tavernBuffs(view.shop, (id) => {
+    const info = db?.byId(id);
+    const c = catalog.find((x) => x.id === id);
+    return info?.attack === undefined || info.health === undefined || c === undefined
+      ? undefined
+      : { attack: info.attack, health: info.health, tribes: c.tribes };
+  }),
 }));
 await mkdir(dirname(out), { recursive: true });
 await writeFile(out, JSON.stringify(frames));
 await writeFile(join(dirname(out), 'demo-catalog.json'), JSON.stringify(uiCatalog));
+// Images des tribus (HearthstoneJSON, cache de dev hors dépôt) : jamais dans l'application.
+await writeFile(
+  join(dirname(out), 'demo-tribe-art.json'),
+  JSON.stringify(await loadTribeArt(catalog, join(cacheDir, '..', 'art'))),
+);
 
 // Historique de démonstration : les parties des fixtures, enregistrées comme en direct puis
 // stockées dans une base SQLite en mémoire (ids, tri) ; les noms viennent des données de cartes.

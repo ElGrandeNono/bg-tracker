@@ -47,6 +47,16 @@ const bridge: BgtBridge = {
   updateSettings(patch) {
     ipcRenderer.send(CHANNELS.updateSettings, patch);
   },
+  setInteractive(on) {
+    ipcRenderer.send(CHANNELS.setInteractive, on);
+  },
+  onTribeArt(listener) {
+    const handler = (_e: IpcRendererEvent, art: Readonly<Record<string, string>>): void => {
+      listener(art);
+    };
+    ipcRenderer.on(CHANNELS.tribeArt, handler);
+    return () => ipcRenderer.removeListener(CHANNELS.tribeArt, handler);
+  },
   history: {
     list: () => ipcRenderer.invoke(CHANNELS.historyList),
     get: (id) => ipcRenderer.invoke(CHANNELS.historyGet, id),

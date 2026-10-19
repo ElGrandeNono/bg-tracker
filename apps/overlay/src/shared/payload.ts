@@ -15,6 +15,8 @@ export const CHANNELS = {
   openDashboard: 'bgt:open-dashboard',
   openSettings: 'bgt:open-settings',
   updateSettings: 'bgt:update-settings',
+  setInteractive: 'bgt:set-interactive',
+  tribeArt: 'bgt:tribe-art',
   historyList: 'bgt:history-list',
   historyGet: 'bgt:history-get',
   historyUpdate: 'bgt:history-update',
@@ -73,6 +75,8 @@ export interface PanelPosition {
   readonly y: number;
 }
 
+export type PanelId = 'status' | 'players' | 'sim' | 'counters';
+
 export type Theme = 'dark' | 'light' | 'contrast';
 export type Language = 'fr' | 'en';
 
@@ -85,6 +89,8 @@ export interface SectionVisibility {
   readonly season: boolean;
   readonly simulation: boolean;
   readonly opponentBoard: boolean;
+  /** Rafraîchissements gratuits, gemmes de sang, sorts et serviteurs de la taverne. */
+  readonly counters: boolean;
 }
 
 export interface AlertSettings {
@@ -121,7 +127,11 @@ export interface OverlaySettings {
   readonly locked: boolean;
   readonly hidden: boolean;
   readonly scale: number;
-  readonly panels: Readonly<Record<'bar' | 'lobby', PanelPosition>>;
+  /**
+   * Panneaux déplaçables : état (tour, or, boutons) en haut à droite, joueurs à gauche,
+   * simulation en haut au milieu, compteurs à droite du pouvoir héroïque.
+   */
+  readonly panels: Readonly<Record<PanelId, PanelPosition>>;
   /** Fond sombre de démonstration (captures, mode autonome) : jamais en jeu. */
   readonly backdrop: boolean;
 }
@@ -139,6 +149,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
     season: true,
     simulation: true,
     opponentBoard: true,
+    counters: true,
   },
   alerts: { sound: false, turnStart: false, timerLow: true, triple: true, tribesFound: false },
   streamer: {
@@ -152,7 +163,12 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   locked: true,
   hidden: false,
   scale: 1,
-  panels: { bar: { x: 0.36, y: 0.012 }, lobby: { x: 0.8, y: 0.16 } },
+  panels: {
+    status: { x: 0.72, y: 0.008 },
+    players: { x: 0.004, y: 0.1 },
+    sim: { x: 0.4, y: 0.008 },
+    counters: { x: 0.63, y: 0.8 },
+  },
   backdrop: false,
 };
 
@@ -168,6 +184,17 @@ export interface OverlayPayload {
   readonly pool: PoolPayload | undefined;
   /** Simulation du combat en cours ou à venir (plateaux affichés uniquement). */
   readonly combatSim: CombatSimPayload | undefined;
+  /**
+   * Bonus des serviteurs de la boutique affichée, par tribu (`ALL` = tous) : écart entre leurs
+   * stats et celles de la carte (HearthstoneJSON). Aucun tag du log ne les donne directement.
+   */
+  readonly tavernBuffs: readonly TavernBuff[];
+}
+
+export interface TavernBuff {
+  readonly tribe: string;
+  readonly attack: number;
+  readonly health: number;
 }
 
 export interface CombatSimPayload {
@@ -233,5 +260,12 @@ export interface BgtBridge {
   openSettings(): void;
   /** Fusionne des réglages (fenêtre Réglages) ; le résultat revient via onUpdate. */
   updateSettings(patch: SettingsPatch): void;
+  /**
+   * Overlay click-through : la souris survole un bouton de l'overlay, il doit recevoir le clic
+   * (vrai) ou redevenir transparent aux clics (faux).
+   */
+  setInteractive(on: boolean): void;
+  /** Image (data URL, HearthstoneJSON, en cache local) d'un serviteur représentatif par tribu. */
+  onTribeArt(listener: (art: Readonly<Record<string, string>>) => void): () => void;
   readonly history: HistoryBridge;
 }

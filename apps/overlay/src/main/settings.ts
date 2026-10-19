@@ -1,17 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { DEFAULT_SETTINGS, type OverlaySettings, type SettingsPatch } from '../shared/payload.js';
+import {
+  DEFAULT_SETTINGS,
+  type OverlaySettings,
+  type PanelPosition,
+  type SettingsPatch,
+} from '../shared/payload.js';
 
 /** Réglages de l'overlay, persistés en JSON dans le dossier utilisateur de l'application. */
 
 const clamp = (v: unknown, min: number, max: number, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
 
-function sanitizePanel(
-  v: unknown,
-  fallback: OverlaySettings['panels']['bar'],
-): OverlaySettings['panels']['bar'] {
+function sanitizePanel(v: unknown, fallback: PanelPosition): PanelPosition {
   const o = typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
   return { x: clamp(o.x, 0, 0.98, fallback.x), y: clamp(o.y, 0, 0.98, fallback.y) };
 }
@@ -64,8 +66,11 @@ export function sanitizeSettings(raw: unknown): OverlaySettings {
     hidden: false,
     scale: clamp(o.scale, 0.6, 2, d.scale),
     panels: {
-      bar: sanitizePanel(panels.bar, d.panels.bar),
-      lobby: sanitizePanel(panels.lobby, d.panels.lobby),
+      // Anciennes clés (bar, lobby, avant la 0.8) ignorées : nouvelle disposition par défaut.
+      status: sanitizePanel(panels.status, d.panels.status),
+      players: sanitizePanel(panels.players, d.panels.players),
+      sim: sanitizePanel(panels.sim, d.panels.sim),
+      counters: sanitizePanel(panels.counters, d.panels.counters),
     },
     backdrop: false,
   };

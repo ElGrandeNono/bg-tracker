@@ -92,6 +92,7 @@ const fr = {
     tierShort: 'Niv. ',
     healthArmor: (h: number, a: number) => `${h} PV + ${a} armure`,
     finalPlace: 'Place finale',
+    availableTribes: 'Tribus du lobby',
   },
   sim: {
     win: 'V',
@@ -104,6 +105,25 @@ const fr = {
     fromBoard: (round: number) => `D’après son plateau du tour ${round}.`,
     approximate: (n: number) => `≈ Approximatif : ${n} carte(s) aux effets non simulés.`,
     hint: (n: number, final: boolean) => `${n} combats simulés${final ? '' : ' (en cours)'}`,
+    lethal: 'Létal',
+    winLong: 'Victoire',
+    tieLong: 'Égalité',
+    lossLong: 'Défaite',
+    current: (name: string) => `Combat en cours contre ${name}`,
+    next: (name: string, round: number) => `Prochain : ${name} · plateau du tour ${round}`,
+  },
+  buttons: {
+    browser: 'Serviteurs, pool et probabilités (Ctrl+Maj+B)',
+    dashboard: 'Historique et statistiques (Ctrl+Maj+D)',
+    settings: 'Réglages (Ctrl+Maj+P)',
+  },
+  counters: {
+    freeRefresh: (n: number) => `Rafraîchissements gratuits : ${n}`,
+    bloodGem: (a: number, h: number) => `Gemmes de sang : bonus +${a}/+${h}`,
+    spells: (a: number, h: number) => `Sorts de la taverne : +${a} ATQ / +${h} PV`,
+    tavern: (tribe: string, a: number, h: number) =>
+      `Serviteurs de la taverne (${tribe}) : +${a}/+${h} (d’après la boutique affichée)`,
+    all: 'tous',
   },
   season: {
     trinkets: 'Bibelots',
@@ -252,6 +272,7 @@ const fr = {
       season: 'Mécaniques de saison',
       simulation: 'Simulation de combat',
       opponentBoard: 'Plateau du prochain adversaire',
+      counters: 'Compteurs près du pouvoir héroïque',
     },
     alerts: 'Alertes',
     alertNames: {
@@ -371,6 +392,7 @@ const en: Messages = {
     tierShort: 'Tier ',
     healthArmor: (h, a) => `${h} health + ${a} armor`,
     finalPlace: 'Final place',
+    availableTribes: 'Lobby tribes',
   },
   sim: {
     win: 'W',
@@ -383,6 +405,24 @@ const en: Messages = {
     fromBoard: (round) => `From their board on turn ${round}.`,
     approximate: (n) => `≈ Approximate: ${n} card(s) with unsimulated effects.`,
     hint: (n, final) => `${n} simulated combats${final ? '' : ' (running)'}`,
+    lethal: 'Lethal',
+    winLong: 'Win',
+    tieLong: 'Tie',
+    lossLong: 'Loss',
+    current: (name) => `Current combat vs ${name}`,
+    next: (name, round) => `Next: ${name} · board from turn ${round}`,
+  },
+  buttons: {
+    browser: 'Minions, pool and odds (Ctrl+Shift+B)',
+    dashboard: 'History and statistics (Ctrl+Shift+D)',
+    settings: 'Settings (Ctrl+Shift+P)',
+  },
+  counters: {
+    freeRefresh: (n) => `Free refreshes: ${n}`,
+    bloodGem: (a, h) => `Blood Gems: bonus +${a}/+${h}`,
+    spells: (a, h) => `Tavern spells: +${a} Attack / +${h} Health`,
+    tavern: (tribe, a, h) => `Tavern minions (${tribe}): +${a}/+${h} (from the shop shown)`,
+    all: 'all',
   },
   season: {
     trinkets: 'Trinkets',
@@ -528,6 +568,7 @@ const en: Messages = {
       season: 'Season mechanics',
       simulation: 'Combat simulation',
       opponentBoard: 'Next opponent board',
+      counters: 'Counters next to the hero power',
     },
     alerts: 'Alerts',
     alertNames: {

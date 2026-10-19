@@ -69,6 +69,7 @@ describe('alertes : déclenchement unique', () => {
       timerEndsAt: now + 8000,
       pool: undefined,
       combatSim: undefined,
+      tavernBuffs: [],
     };
     const fired = new Set<string>();
     const first = dueAlerts(p, now, MESSAGES.fr, fired);

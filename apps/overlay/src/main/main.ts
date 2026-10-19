@@ -39,6 +39,8 @@ import { checkGameConfig, offerConfigFixes } from './gameSetup.js';
 import { catalogCards, poolPayload } from './poolPayload.js';
 import { currentPoolRules, currentSeason, overlayView } from './season.js';
 import { buildSimRequest, type SimRequest } from './combatSim.js';
+import { tavernBuffs, type BaseCard } from './tavernBuffs.js';
+import { loadTribeArt } from './tribeArt.js';
 import { HistoryService } from './history.js';
 import { SimulationPool } from '@bgt/sim';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
@@ -168,6 +170,19 @@ let status: OverlayStatus = {
   replayDone: false,
 };
 let cardDb: CardDb | undefined;
+/** Catalogue du pool par cardId (tribus des serviteurs de la boutique). */
+let catalogById = new Map<string, PoolCard>();
+/** Images des tribus (data URL), chargées une fois par build. */
+let tribeArt: Record<string, string> | undefined;
+/** La souris survole un bouton de l'overlay : il reçoit les clics. */
+let overButton = false;
+
+function baseCard(cardId: string): BaseCard | undefined {
+  const info = cardDb?.byId(cardId);
+  const c = catalogById.get(cardId);
+  if (info?.attack === undefined || info.health === undefined || c === undefined) return undefined;
+  return { attack: info.attack, health: info.health, tribes: c.tribes };
+}
 /** Build + locale des données chargées (un changement de langue recharge les noms). */
 let cardDbKey: string | undefined;
 let timerEndsAt: number | undefined;
@@ -204,6 +219,15 @@ async function ensureCardDb(build: string | undefined): Promise<void> {
     cardDb = result.db;
     poolCatalog = buildPoolCatalog(result.db);
     uiCatalog = catalogCards(result.db, poolCatalog, poolRules);
+    catalogById = new Map(poolCatalog.map((c) => [c.id, c]));
+    void loadTribeArt(poolCatalog, join(app.getPath('userData'), 'art')).then((art) => {
+      tribeArt = art;
+      for (const w of [win, browserWin]) {
+        if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
+          w.webContents.send(CHANNELS.tribeArt, art);
+        }
+      }
+    });
     for (const w of [win, browserWin]) {
       if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
         w.webContents.send(CHANNELS.catalog, uiCatalog);
@@ -260,6 +284,7 @@ function push(): void {
     timerEndsAt: view.phase === 'recruit' ? timerEndsAt : undefined,
     pool: poolCatalog.length === 0 ? undefined : poolPayload(view, poolCatalog, poolRules),
     combatSim: updateSimulation(buildSimRequest(view, cardDb)),
+    tavernBuffs: tavernBuffs(view.shop, baseCard),
   };
   // Toutes les fenêtres reçoivent la vue : langue et thème suivent les réglages partout.
   for (const w of [win, browserWin, dashboardWin, settingsWin]) {
@@ -309,7 +334,7 @@ function applySettings(next: OverlaySettings, persist = true): void {
     void checkForUpdates(() => menuStrings(settings.language));
   }
   if (win !== undefined) {
-    win.setIgnoreMouseEvents(settings.locked, { forward: true });
+    win.setIgnoreMouseEvents(settings.locked && !overButton, { forward: true });
     win.setFocusable(!settings.locked);
     updateVisibility();
   }
@@ -639,6 +664,7 @@ ipcMain.on(CHANNELS.ready, (e) => {
   rendererReady = true;
   readyContents.add(e.sender.id);
   if (uiCatalog.length > 0) e.sender.send(CHANNELS.catalog, uiCatalog);
+  if (tribeArt !== undefined) e.sender.send(CHANNELS.tribeArt, tribeArt);
   push();
 });
 ipcMain.on(CHANNELS.openBrowser, () => {
@@ -646,6 +672,13 @@ ipcMain.on(CHANNELS.openBrowser, () => {
 });
 ipcMain.on(CHANNELS.openDashboard, () => {
   openDashboard();
+});
+// Boutons de l'overlay : la fenêtre reste transparente aux clics sauf quand la souris est dessus
+// (les mouvements sont transmis grâce à `forward: true`). Aucun clic n'est jamais simulé.
+ipcMain.on(CHANNELS.setInteractive, (e, on: unknown) => {
+  if (win === undefined || e.sender.id !== win.webContents.id) return;
+  overButton = on === true;
+  win.setIgnoreMouseEvents(settings.locked && !overButton, { forward: true });
 });
 ipcMain.on(CHANNELS.openSettings, () => {
   openSettings();
