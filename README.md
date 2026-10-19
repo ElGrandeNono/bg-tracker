@@ -32,6 +32,15 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 L'application proposera de faire ces deux réglages pour vous, avec votre accord.
 
+## Disposition de l'overlay
+
+- **En haut au milieu** : probabilités du combat en cours ou à venir (létal · victoire · égalité · défaite · létal).
+- **À gauche** : icônes des tribus du lobby (« ? » = probable), classement des joueurs (PV = vie + armure), pool, mécaniques de saison, dernier plateau du prochain adversaire.
+- **En haut à droite** : tour, taverne, or, minuteur, PV, triples, et trois boutons cliquables : serviteurs et probabilités, historique, réglages.
+- **À droite du pouvoir héroïque** (recrutement) : rafraîchissements gratuits, bonus des gemmes de sang, bonus des sorts de taverne, bonus des serviteurs de la taverne (calculés d'après la boutique affichée).
+
+Chaque panneau se déplace (Ctrl+Maj+U) et se masque (Réglages › Sections).
+
 ## Installer
 
 Téléchargez `BG-Tracker-Setup-<version>.exe` depuis les [releases GitHub](https://github.com/ElGrandeNono/bg-tracker/releases) (installation par utilisateur, sans droits administrateur). L'installeur **n'est pas signé** (une signature exige un certificat de signature de code payant) : Windows SmartScreen affiche « Windows a protégé votre ordinateur » ; cliquez sur « Informations complémentaires » puis « Exécuter quand même ». Le code de l'installeur est construit par la CI publique à partir de ce dépôt (`.github/workflows/release.yml`).
@@ -66,7 +75,7 @@ Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fi
 
 **Réseau** :
 
-- Données de cartes : téléchargées depuis HearthstoneJSON (mises en cache par version du jeu et par langue). Seul accès indispensable ; aucune donnée personnelle n'est envoyée.
+- Données de cartes et illustrations des icônes de tribus : téléchargées depuis HearthstoneJSON (mises en cache localement, jamais incluses dans l'installeur). Seul accès indispensable ; aucune donnée personnelle n'est envoyée.
 - Vérification des mises à jour (**désactivée par défaut**, Réglages › Mises à jour) : interroge les releases GitHub de ce dépôt au démarrage ; rien n'est téléchargé sans votre accord.
 - Mode streamer (**désactivé par défaut**) : serveur local uniquement, aucune connexion sortante.
 - Aucune télémétrie.
