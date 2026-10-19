@@ -535,6 +535,12 @@ const SHORTCUTS: readonly [string, MenuKey, () => void][] = [
     'toggle',
     () => {
       applySettings({ ...settings, hidden: !settings.hidden });
+      if (settings.hidden) {
+        tray?.displayBalloon({
+          title: 'BG Tracker',
+          content: menuStrings(settings.language).hiddenNotice,
+        });
+      }
     },
   ],
   [

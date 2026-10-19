@@ -60,7 +60,8 @@ export function sanitizeSettings(raw: unknown): OverlaySettings {
     },
     autoUpdate: typeof o.autoUpdate === 'boolean' ? o.autoUpdate : d.autoUpdate,
     locked: true, // toujours verrouillé au démarrage : jamais d'overlay qui capte la souris par surprise
-    hidden: typeof o.hidden === 'boolean' ? o.hidden : d.hidden,
+    // Toujours visible au démarrage : un overlay masqué la veille (Ctrl+Maj+H) semblait cassé.
+    hidden: false,
     scale: clamp(o.scale, 0.6, 2, d.scale),
     panels: {
       bar: sanitizePanel(panels.bar, d.panels.bar),

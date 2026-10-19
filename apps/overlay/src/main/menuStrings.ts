@@ -17,6 +17,7 @@ const fr = {
   titleSettings: 'BG Tracker — réglages',
   streamError: (port: number) =>
     `Mode streamer : le port ${port} est déjà utilisé. Choisissez-en un autre dans les Réglages.`,
+  hiddenNotice: 'Overlay masqué. Ctrl+Maj+H (ou le menu de l’icône BG Tracker) pour le réafficher.',
   shortcutsTaken: (keys: string) =>
     `Raccourcis déjà utilisés par une autre application : ${keys}. Utilisez le menu de l’icône BG Tracker.`,
   updateAvailable: (v: string) => `La version ${v} de BG Tracker est disponible.`,
@@ -43,6 +44,8 @@ const en: MenuStrings = {
   titleSettings: 'BG Tracker — settings',
   streamError: (port) =>
     `Streamer mode: port ${port} is already in use. Pick another one in the Settings.`,
+  hiddenNotice:
+    'Overlay hidden. Press Ctrl+Shift+H (or use the BG Tracker tray menu) to show it again.',
   shortcutsTaken: (keys) =>
     `Shortcuts already used by another application: ${keys}. Use the BG Tracker tray icon menu.`,
   updateAvailable: (v) => `BG Tracker ${v} is available.`,

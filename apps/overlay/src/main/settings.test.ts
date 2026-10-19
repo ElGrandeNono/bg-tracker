@@ -24,6 +24,7 @@ describe('réglages de l’overlay', () => {
     expect(s.panels.bar).toEqual({ x: 0, y: 0.5 });
     expect(s.panels.lobby).toEqual({ x: 0.98, y: DEFAULT_SETTINGS.panels.lobby.y });
     expect(s.backdrop).toBe(false);
+    expect(sanitizeSettings({ hidden: true }).hidden).toBe(false);
   });
 
   it('fusionne un patch de la fenêtre Réglages, toujours revalidé', () => {
