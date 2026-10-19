@@ -439,8 +439,7 @@ function openAuxWindow(
   onClosed: () => void,
 ): BrowserWindow {
   if (existing !== undefined && !existing.isDestroyed()) {
-    existing.show();
-    existing.focus();
+    bringToFront(existing);
     return existing;
   }
   const w = new BrowserWindow({
@@ -463,8 +462,27 @@ function openAuxWindow(
     readyContents.delete(id);
     onClosed();
   });
+  w.once('ready-to-show', () => {
+    bringToFront(w);
+  });
   void w.loadFile(join(here, '../renderer/index.html'), { hash: route });
   return w;
+}
+
+/**
+ * Le jeu a le focus quand un raccourci ouvre une fenêtre : Windows refuse alors de passer la
+ * nouvelle fenêtre au premier plan et elle s'ouvrait DERRIÈRE Hearthstone. On la met
+ * brièvement « toujours au-dessus » le temps de l'afficher.
+ */
+function bringToFront(w: BrowserWindow): void {
+  if (w.isMinimized()) w.restore();
+  w.setAlwaysOnTop(true);
+  w.show();
+  w.focus();
+  w.moveTop();
+  setTimeout(() => {
+    if (!w.isDestroyed()) w.setAlwaysOnTop(false);
+  }, 500);
 }
 
 function createWindow(): BrowserWindow {
@@ -663,6 +681,12 @@ ipcMain.on(CHANNELS.rendered, () => {
   );
 });
 
+// Une seule instance : une deuxième ne pourrait pas enregistrer les raccourcis (déjà pris).
+if (smokeOut === undefined && !app.requestSingleInstanceLock()) app.exit(0);
+app.on('second-instance', () => {
+  openSettings();
+});
+
 app.disableHardwareAcceleration(); // overlay léger : évite le coût GPU d'une fenêtre transparente
 void app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => {
@@ -685,7 +709,16 @@ void app.whenReady().then(async () => {
     tray = new Tray(trayIcon());
     tray.setToolTip('BG Tracker');
     refreshTrayMenu();
-    for (const [accel, , action] of SHORTCUTS) globalShortcut.register(accel, action);
+    const taken = SHORTCUTS.filter(([accel, , action]) => !globalShortcut.register(accel, action));
+    if (taken.length > 0) {
+      // Raccourci déjà utilisé par une autre application : on le dit au lieu d'échouer en silence.
+      tray.displayBalloon({
+        title: 'BG Tracker',
+        content: menuStrings(settings.language).shortcutsTaken(
+          taken.map(([a]) => a.replace('CommandOrControl', 'Ctrl')).join(', '),
+        ),
+      });
+    }
   }
   void syncStreamServer();
   // Mises à jour : uniquement si l'utilisateur l'a activé (accès réseau à GitHub).

@@ -202,8 +202,15 @@ function PlayerRow({
       <span className="row__tier" title={t.tierHint}>
         {pl.techLevel ?? '–'}
       </span>
-      <span className="row__hp" title={t.healthHint}>
-        {pl.health ?? '–'}
+      <span
+        className="row__hp"
+        title={
+          pl.health !== undefined && (pl.armor ?? 0) > 0
+            ? t.healthArmor(pl.health, pl.armor ?? 0)
+            : t.healthHint
+        }
+      >
+        {pl.health === undefined ? '–' : pl.health + (pl.armor ?? 0)}
       </span>
       {!compact && (
         <span className="row__triples" title={t.triplesHint}>
@@ -337,7 +344,7 @@ function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
         key="d"
         title={dg.gifts.map((g) => `${n(g.giftCardId)} → ${n(g.minionCardId)}`).join(' · ')}
       >
-        <span className="season__label">{t.darkGifts}</span> <b>{dg.used}</b>/{dg.max}
+        <span className="season__label">{t.darkGifts}</span> <b>{dg.used}</b>/{dg.max} {t.used}
         {p.view.outcome === 'inProgress' &&
           dg.used < dg.max &&
           (dg.available ? (
@@ -398,11 +405,18 @@ function PoolSummary({ p }: { p: OverlayPayload }): React.JSX.Element | null {
 function Tribes({ view }: { view: VisibleView }): React.JSX.Element {
   const t = view.tribes;
   const m = useI18n();
+  // Tribus identifiées, puis les plus vues (au moins 2 cartes distinctes) marquées « ? ».
+  const probable = t.tribes
+    .filter((x) => !x.identified && x.distinctCards >= 2)
+    .slice(0, Math.max(0, t.expected - t.identified.length));
+  const label = (x: string): string => m.tribes[x] ?? x;
   return (
     <p className="tribes" title={m.lobby.tribesHint}>
       {m.lobby.tribes} {t.identified.length}/{t.expected}
       {m.lobby.colon}
-      {t.identified.length === 0 ? '…' : t.identified.map((x) => m.tribes[x] ?? x).join(', ')}
+      {t.identified.length + probable.length === 0
+        ? '…'
+        : [...t.identified.map(label), ...probable.map((x) => `${label(x.tribe)} ?`)].join(', ')}
     </p>
   );
 }

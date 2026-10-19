@@ -17,6 +17,8 @@ const fr = {
   titleSettings: 'BG Tracker — réglages',
   streamError: (port: number) =>
     `Mode streamer : le port ${port} est déjà utilisé. Choisissez-en un autre dans les Réglages.`,
+  shortcutsTaken: (keys: string) =>
+    `Raccourcis déjà utilisés par une autre application : ${keys}. Utilisez le menu de l’icône BG Tracker.`,
   updateAvailable: (v: string) => `La version ${v} de BG Tracker est disponible.`,
   updateDetail: 'Télécharger et installer maintenant ? (fichier publié sur GitHub)',
   updateReady: 'La mise à jour est prête. Redémarrer BG Tracker pour l’installer ?',
@@ -41,6 +43,8 @@ const en: MenuStrings = {
   titleSettings: 'BG Tracker — settings',
   streamError: (port) =>
     `Streamer mode: port ${port} is already in use. Pick another one in the Settings.`,
+  shortcutsTaken: (keys) =>
+    `Shortcuts already used by another application: ${keys}. Use the BG Tracker tray icon menu.`,
   updateAvailable: (v) => `BG Tracker ${v} is available.`,
   updateDetail: 'Download and install now? (file published on GitHub)',
   updateReady: 'The update is ready. Restart BG Tracker to install it?',
