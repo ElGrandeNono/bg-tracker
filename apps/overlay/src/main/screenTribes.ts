@@ -101,9 +101,9 @@ export class ScreenTribeReader {
       const top = BANNER.y * 100 + 2;
       const left = BANNER.x * 100 + 3;
       const html =
-        `<body style="margin:0;background:#140c1c;font:bold 21px Georgia,serif">` +
+        `<body style="margin:0;background:#140c1c;font:bold 22px Arial,sans-serif">` +
         `<div style="position:absolute;left:${left}%;top:${top}%;width:20%;color:#f3e6ff;white-space:nowrap;` +
-        `text-align:center;line-height:1.15">Aberrations, Dragons,<br>Morts-vivants, Pirates,<br>` +
+        `text-align:center;line-height:1.4">Aberrations, Dragons,<br>Morts-vivants, Pirates,<br>` +
         `Élémentaires</div></body>`;
       await w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
       await new Promise((r) => setTimeout(r, 500));
