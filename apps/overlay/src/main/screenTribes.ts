@@ -108,21 +108,20 @@ export class ScreenTribeReader {
    * dessine un bandeau factice avec les noms de 5 tribus, le capture et le lit.
    */
   async selfTest(): Promise<string[]> {
-    const W = 1600;
-    const H = 900;
     const w = new BrowserWindow({
       show: false,
-      width: W,
-      height: H,
+      width: 1600,
+      height: 900,
       useContentSize: true,
       webPreferences: { offscreen: true, sandbox: true, contextIsolation: true },
     });
     try {
-      const left = Math.round(W / 2 + (BANNER.dx + 0.03) * H);
-      const top = Math.round((BANNER.y + 0.02) * H);
+      // Unités relatives : la fenêtre factice peut être réduite à la taille de l'écran (CI).
+      const left = `calc(50vw + ${((BANNER.dx + 0.03) * 100).toFixed(1)}vh)`;
+      const top = `${((BANNER.y + 0.02) * 100).toFixed(1)}vh`;
       const html =
-        `<body style="margin:0;background:#140c1c;font:bold 22px Arial,sans-serif">` +
-        `<div style="position:absolute;left:${left}px;top:${top}px;color:#f3e6ff;white-space:nowrap;` +
+        `<body style="margin:0;background:#140c1c;font:bold 2.45vh Arial,sans-serif">` +
+        `<div style="position:absolute;left:${left};top:${top};color:#f3e6ff;white-space:nowrap;` +
         `text-align:center;line-height:1.4">Aberrations, Dragons,<br>Morts-vivants, Pirates,<br>` +
         `Élémentaires</div></body>`;
       await w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
