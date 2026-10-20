@@ -1,6 +1,6 @@
 {
   "name": "@bgt/overlay",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "private": true,
   "license": "MIT",
   "description": "Overlay en jeu de BG Tracker (Electron). Non affilié à Blizzard Entertainment.",
@@ -20,8 +20,11 @@
     "@bgt/history": "workspace:*",
     "@bgt/season-s14": "workspace:*",
     "@bgt/sim": "workspace:*",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/fra": "1.0.0",
     "electron-updater": "6.8.10",
-    "koffi": "3.3.3"
+    "koffi": "3.3.3",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

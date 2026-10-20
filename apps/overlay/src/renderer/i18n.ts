@@ -301,6 +301,9 @@ const fr = {
     hidePool: 'Masquer le pool',
     updates: 'Mises à jour',
     autoUpdate: 'Vérifier les mises à jour sur GitHub (accès réseau)',
+    screenReading: 'Lire les tribus de la partie à l’écran (choix du héros)',
+    screenReadingHint:
+      'capture de la seule fenêtre Hearthstone et reconnaissance du texte sur cet ordinateur ; aucune image conservée ni envoyée',
     shortcuts: 'Raccourcis',
     shortcutList: [
       ['Ctrl+Maj+H', 'Afficher / masquer'],
@@ -606,6 +609,9 @@ const en: Messages = {
     hidePool: 'Hide pool',
     updates: 'Updates',
     autoUpdate: 'Check for updates on GitHub (network access)',
+    screenReading: 'Read the game tribes on screen (hero selection)',
+    screenReadingHint:
+      'captures the Hearthstone window only and reads the text on this computer; no image is kept or sent',
     shortcuts: 'Shortcuts',
     shortcutList: [
       ['Ctrl+Shift+H', 'Show / hide'],

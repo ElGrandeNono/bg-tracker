@@ -59,6 +59,8 @@ Saison : contrat `core/src/season/module.ts` (`SeasonModule` : état propre + `r
 
 Pool : `core/src/pool/pool.ts` (calcul pur, hypergéométrique), règles dans `seasons/s14/src/poolRules.ts` (sources + `verified`), catalogue `data/src/poolCatalog.ts` (pool solo HearthstoneJSON, hors Duos), cartes vues = `VisibleView.poolSightings`. Navigateur de serviteurs = même renderer, route `#browser`, fenêtre séparée. Voir `docs/adding-a-season.md`.
 
+Lecture d'écran (opt-in) : `main/screenTribes.ts` (capture de la fenêtre Hearthstone au choix du héros, OCR tesseract.js local, données fra/eng embarquées), `main/tribeNames.ts` (correspondance floue) ; `--ocr-test <png>` et `--ocr-selftest` pour vérifier.
+
 Personnalisation (M7) : fenêtre Réglages `renderer/Settings.tsx` (route `#settings`, Ctrl+Maj+P, patchs validés par `main/settings.ts` `applyPatch`) ; i18n `renderer/i18n.ts` (fr = référence, en du même type ; aucun texte d'interface en dur ailleurs) et `main/menuStrings.ts` ; alertes `renderer/alerts.ts` ; mode streamer `main/streamServer.ts` + `renderer/streamBridge.ts` (opt-in, 127.0.0.1) ; mises à jour `main/updater.ts` (opt-in) ; empaquetage `apps/overlay/package.mjs` et `.github/workflows/release.yml`. Démo : `?lang=en&theme=contrast` dans l'URL.
 
 `packages/data` : `loadCardDb` (HearthstoneJSON `/v1/<build>/<locale>/cards.json`, cache par build, repli `latest` puis cache périmé). `apps/overlay` : `src/main` (pipeline, `hsWindow.ts` user32 via koffi, réglages, config du jeu), `src/preload`, `src/renderer` (React), `src/shared/payload.ts` (contrat IPC), `build.mjs` (esbuild) + Vite. Détails : `docs/architecture.md`.
@@ -108,7 +110,9 @@ Critère M1 : sur les deux fixtures, chronologie correcte (tours, combats et adv
 - Les binaires Electron et esbuild sont dans `onlyBuiltDependencies` (pnpm-workspace.yaml). La CI pose `ELECTRON_SKIP_BINARY_DOWNLOAD=1`.
 - `koffi` charge son binaire depuis le paquet optionnel `@koromix/koffi-win32-x64` : `package.mjs` copie les deux (asarUnpack). Ne pas « simplifier » en ne copiant que `koffi`.
 - `BGT_USER_DATA=<dossier>` : dossier de données séparé (réglages, historique, cache de cartes) pour les essais Electron, sans toucher aux réglages réels de l'utilisateur.
-- L'installeur NSIS est construit par la CI (`windows-latest`) ; en local, préférer `package:dir` (Avast de l'utilisateur, installeur non signé).
+- **Ne jamais empaqueter en local** (ni `package` ni `package:dir`) : electron-builder liste les dépendances via `powershell.exe -EncodedCommand` et Avast bloque PowerShell (`IDP.HELU.PSE94`, 20/10/2026). L'installeur est construit par la CI (`windows-latest`), qui lance aussi `--ocr-selftest` sur l'appli empaquetée.
+- Pas d'archive asar (`asar: false`) : les worker_threads (simulation, OCR) ne lisent pas l'intérieur d'une archive asar.
+- Tests Electron en local : jamais d'exception non gérée (Electron affiche alors une boîte d'erreur sur l'écran de l'utilisateur).
 
 ## À demander à l'utilisateur au bon moment
 

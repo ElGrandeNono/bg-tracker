@@ -5,9 +5,9 @@
 //
 // Le code est déjà regroupé par esbuild/Vite : l'application empaquetée ne contient que dist/
 // et koffi (module natif, MIT). Aucun asset Blizzard ; l'icône est générée ici.
-import { cpSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Buffer } from 'node:buffer';
 import { deflateSync } from 'node:zlib';
 import { Arch, build, Platform } from 'electron-builder';
@@ -15,6 +15,8 @@ import { Arch, build, Platform } from 'electron-builder';
 const here = import.meta.dirname;
 const pkg = JSON.parse(readFileSync(join(here, 'package.json'), 'utf8'));
 const stage = join(here, 'release', 'app');
+/** Modules chargés à l'exécution (natif ou worker) : embarqués tels quels dans node_modules. */
+const RUNTIME_DEPS = ['koffi', 'tesseract.js', '@tesseract.js-data/fra', '@tesseract.js-data/eng'];
 const resources = join(here, 'release', 'build');
 
 // ------------------------------------------------------------- dossier de l'application
@@ -38,23 +40,20 @@ writeFileSync(
       author: 'ElGrandeNono',
       type: 'module',
       main: 'dist/main/main.js',
-      dependencies: { koffi: pkg.dependencies.koffi },
+      // Seules dépendances non regroupées par esbuild (voir build.mjs, external), versions exactes.
+      dependencies: Object.fromEntries(RUNTIME_DEPS.map((d) => [d, pkg.dependencies[d]])),
     },
     null,
     2,
   ),
 );
-// koffi + son binaire Windows (paquet optionnel @koromix/koffi-win32-x64), copiés tels quels.
-const require = createRequire(join(here, 'package.json'));
-const koffiDir = realpathSync(dirname(require.resolve('koffi')));
-const nativeDir = realpathSync(
-  dirname(createRequire(join(koffiDir, 'package.json')).resolve('@koromix/koffi-win32-x64')),
+// Installées par npm dans le dossier de l'application : koffi tire son binaire Windows
+// (paquet optionnel @koromix/koffi-win32-x64) ; scripts d'installation désactivés.
+execFileSync(
+  'npm',
+  ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock'],
+  { cwd: stage, stdio: 'inherit', shell: true },
 );
-cpSync(koffiDir, join(stage, 'node_modules', 'koffi'), { recursive: true, dereference: true });
-cpSync(nativeDir, join(stage, 'node_modules', '@koromix', 'koffi-win32-x64'), {
-  recursive: true,
-  dereference: true,
-});
 cpSync(join(here, '..', '..', 'LICENSE'), join(stage, 'LICENSE'));
 
 // ------------------------------------------------------------- icône générée (PNG 256×256)
@@ -123,7 +122,10 @@ await build({
     electronVersion: pkg.devDependencies.electron,
     directories: { app: stage, output: join(here, 'release', 'out'), buildResources: resources },
     files: ['**/*'],
-    asarUnpack: ['node_modules/koffi/**', 'node_modules/@koromix/**', 'dist/main/simWorker.js'],
+    // Natif (koffi) et workers (simulation, OCR) : hors de l'archive asar.
+    // Pas d'archive asar : module natif (koffi) et workers (simulation, OCR) chargent leurs
+    // dépendances depuis le disque ; un worker_threads ne lit pas l'intérieur d'une archive asar.
+    asar: false,
     electronLanguages: ['fr', 'en-US'],
     npmRebuild: false,
     nodeGypRebuild: false,

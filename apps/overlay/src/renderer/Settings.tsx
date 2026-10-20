@@ -221,6 +221,14 @@ export function Settings({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
 
         <section>
           <h2>{m.updates}</h2>
+          {check(
+            m.screenReading,
+            s.screenReading,
+            (v) => {
+              patch({ screenReading: v });
+            },
+            m.screenReadingHint,
+          )}
           {check(m.autoUpdate, s.autoUpdate, (v) => {
             patch({ autoUpdate: v });
           })}

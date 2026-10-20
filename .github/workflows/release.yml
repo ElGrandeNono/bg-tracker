@@ -43,6 +43,11 @@ jobs:
       - name: Installeur (test)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: pnpm --filter @bgt/overlay package
+      - name: Autotest OCR (application empaquetée)
+        shell: bash
+        env:
+          BGT_USER_DATA: ${{ runner.temp }}/bgt-ocr
+        run: '"apps/overlay/release/out/win-unpacked/BG Tracker.exe" --ocr-selftest'
       - uses: actions/upload-artifact@v4
         with:
           name: bg-tracker-windows

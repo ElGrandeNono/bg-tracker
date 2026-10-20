@@ -129,6 +129,11 @@ export interface OverlaySettings {
   readonly showClock: boolean;
   /** Résultat de la simulation masqué tant qu'on ne clique pas dessus. */
   readonly simOnClick: boolean;
+  /**
+   * Lecture des tribus de la partie à l'écran (capture de la fenêtre du jeu + OCR local, pendant
+   * le choix du héros) : désactivée par défaut.
+   */
+  readonly screenReading: boolean;
   /** Verrouillé = click-through ; déverrouillé = panneaux déplaçables. */
   readonly locked: boolean;
   readonly hidden: boolean;
@@ -168,6 +173,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   autoUpdate: false,
   showClock: false,
   simOnClick: false,
+  screenReading: false,
   locked: true,
   hidden: false,
   scale: 1,

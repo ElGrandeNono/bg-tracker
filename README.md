@@ -41,6 +41,8 @@ L'application proposera de faire ces deux réglages pour vous, avec votre accord
 
 Chaque panneau se déplace (Ctrl+Maj+U) et se masque (Réglages › Sections). Options désactivées par défaut : ligne « Pool par niveau », heure, simulation masquée tant qu'on ne clique pas dessus.
 
+**Lecture des tribus à l'écran** (Réglages › Mises à jour, désactivée par défaut) : pendant le choix du héros, BG Tracker capture la seule fenêtre Hearthstone, lit le bandeau qui liste les 5 tribus de la partie (reconnaissance de texte sur votre ordinateur, sans réseau) puis oublie l'image. Le log du jeu ne contient pas cette liste.
+
 ## Installer
 
 Téléchargez `BG-Tracker-Setup-<version>.exe` depuis les [releases GitHub](https://github.com/ElGrandeNono/bg-tracker/releases) (installation par utilisateur, sans droits administrateur). L'installeur **n'est pas signé** (une signature exige un certificat de signature de code payant) : Windows SmartScreen affiche « Windows a protégé votre ordinateur » ; cliquez sur « Informations complémentaires » puis « Exécuter quand même ». Le code de l'installeur est construit par la CI publique à partir de ce dépôt (`.github/workflows/release.yml`).

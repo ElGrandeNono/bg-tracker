@@ -63,6 +63,7 @@ export function sanitizeSettings(raw: unknown): OverlaySettings {
     autoUpdate: typeof o.autoUpdate === 'boolean' ? o.autoUpdate : d.autoUpdate,
     showClock: typeof o.showClock === 'boolean' ? o.showClock : d.showClock,
     simOnClick: typeof o.simOnClick === 'boolean' ? o.simOnClick : d.simOnClick,
+    screenReading: typeof o.screenReading === 'boolean' ? o.screenReading : d.screenReading,
     locked: true, // toujours verrouillé au démarrage : jamais d'overlay qui capte la souris par surprise
     // Toujours visible au démarrage : un overlay masqué la veille (Ctrl+Maj+H) semblait cassé.
     hidden: false,

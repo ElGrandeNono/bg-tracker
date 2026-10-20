@@ -10,7 +10,7 @@ const common = {
   target: 'node22',
   sourcemap: true,
   // koffi embarque un module natif (.node) : chargé depuis node_modules, pas empaqueté.
-  external: ['electron', 'koffi'],
+  external: ['electron', 'koffi', 'tesseract.js', '@tesseract.js-data/*'],
   // Les paquets du workspace exposent leurs sources TS sous la condition `source`.
   conditions: ['source'],
   logLevel: 'warning',

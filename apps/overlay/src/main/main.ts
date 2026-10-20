@@ -41,6 +41,7 @@ import { currentPoolRules, currentSeason, overlayView } from './season.js';
 import { buildSimRequest, type SimRequest } from './combatSim.js';
 import { tavernBuffs, type BaseCard } from './tavernBuffs.js';
 import { cardArt, loadTribeArt } from './tribeArt.js';
+import { ScreenTribeReader } from './screenTribes.js';
 import { HistoryService } from './history.js';
 import { SimulationPool } from '@bgt/sim';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
@@ -74,6 +75,9 @@ const { values: args } = parseArgs({
     'smoke-route': { type: 'string' },
     standalone: { type: 'boolean' },
     locale: { type: 'string' },
+    // Vérification de l'OCR des tribus sur une capture PNG/JPEG, puis sortie.
+    'ocr-test': { type: 'string' },
+    'ocr-selftest': { type: 'boolean' },
   },
 });
 const replayPath = typeof args.replay === 'string' ? args.replay : undefined;
@@ -178,6 +182,16 @@ let tribeArt: Record<string, string> | undefined;
 const artRequested = new Set<string>();
 /** Tribus du lobby cochées par le joueur, par partie (`gameIndex`). */
 const manualTribes = new Map<number, readonly string[]>();
+/** Lecture des tribus à l'écran (opt-in), pendant le choix du héros. */
+const screenTribes = new ScreenTribeReader(
+  () => 5,
+  (gameIndex, tribes) => {
+    if (process.env.BGT_DEBUG === '1')
+      console.log(`[bgt] tribus lues à l'écran : ${tribes.join(', ')}`);
+    if (!manualTribes.has(gameIndex)) manualTribes.set(gameIndex, tribes);
+    schedulePush();
+  },
+);
 
 const artDir = (): string => join(app.getPath('userData'), 'art');
 
@@ -296,6 +310,16 @@ function push(): void {
     manual === undefined
       ? raw
       : { ...raw, tribes: { ...raw.tribes, identified: manual, expected: manual.length } };
+  if (
+    settings.screenReading &&
+    status.source === 'live' &&
+    raw.phase === 'heroSelection' &&
+    !manualTribes.has(raw.gameIndex)
+  ) {
+    screenTribes.start(raw.gameIndex);
+  } else if (raw.phase !== 'heroSelection' || !settings.screenReading) {
+    screenTribes.stop();
+  }
   const deityDbf = view.season?.counters.deityDbfId;
   const deityCardId = deityDbf === undefined ? undefined : cardDb?.byDbfId(deityDbf)?.id;
   if (deityCardId !== undefined) ensureCardArt(deityCardId);
@@ -660,7 +684,7 @@ async function startSource(): Promise<void> {
     schedulePush();
     return;
   }
-  const tracker = new HsWindowTracker(); // démarré tôt : PowerShell compile son Add-Type
+  const tracker = new HsWindowTracker();
   tracker.on('sample', onHsSample);
   tracker.start();
   status = { ...status, configProblems: await checkGameConfig(paths) };
@@ -767,6 +791,19 @@ app.on('second-instance', () => {
 
 app.disableHardwareAcceleration(); // overlay léger : évite le coût GPU d'une fenêtre transparente
 void app.whenReady().then(async () => {
+  if (args['ocr-selftest'] === true) {
+    const tribes = await screenTribes.selfTest().catch((e: unknown) => [String(e)]);
+    console.log(`[bgt] OCR autotest : ${tribes.join(', ')}`);
+    app.exit(tribes.length === 5 ? 0 : 1);
+    return;
+  }
+  const ocrTest = args['ocr-test'];
+  if (typeof ocrTest === 'string') {
+    const tribes = await screenTribes.readFile(ocrTest).catch((e: unknown) => [String(e)]);
+    console.log(`[bgt] OCR : ${tribes.join(', ')}`);
+    app.exit(0);
+    return;
+  }
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => {
     cb(false);
   });
