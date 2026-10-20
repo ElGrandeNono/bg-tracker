@@ -75,7 +75,7 @@ Personnalisation (M7) : fenêtre Réglages `renderer/Settings.tsx` (route `#sett
 
 ## Règles non négociables
 
-1. **Lecture des fichiers de log uniquement.** Interdit : lecture mémoire du processus, injection, hook DLL, modification des fichiers du jeu, automatisation d'inputs, capture d'écran + OCR.
+1. **Logs, plus lecture de l'écran limitée.** Source principale : les fichiers de log. Interdit : lecture mémoire du processus, injection, hook DLL, modification des fichiers du jeu, automatisation d'inputs. **Assouplie par l'utilisateur le 20/10/2026** : la capture de la fenêtre du jeu + OCR est permise UNIQUEMENT pour des infos que le jeu affiche au joueur et que le log ne contient pas (tribus de la partie, MMR), en opt-in (désactivée par défaut), traitement 100 % local, aucune image conservée ni envoyée.
 2. **Fair play.** Aucune info invisible en jeu normal (mains cachées, boutiques adverses, entités masquées). Une seule couche de filtrage entre parseur et UI, couverte par un test automatisé.
 3. **Pas d'assets Blizzard** dans le dépôt ni l'installeur. Données/images depuis HearthstoneJSON au runtime, en cache. Disclaimer « non affilié à Blizzard Entertainment » (README + écran À propos).
 4. **Pas de scraping** de données propriétaires/payantes. Stats externes via l'interface `StatsProvider` ; défaut = historique local.

@@ -8,7 +8,7 @@ Tracker pour **Hearthstone Battlegrounds** : overlay en jeu, suivi du lobby et d
 
 ## Principes
 
-- **Lecture des fichiers de log uniquement** (`Power.log`). Pas de lecture mémoire, pas d'injection, pas d'automatisation, pas d'OCR.
+- **Fichiers de log** (`Power.log`) comme source principale. Pas de lecture mémoire, pas d'injection, pas d'automatisation. Lecture de l'écran (OCR local) seulement en option, désactivée par défaut, pour des infos affichées par le jeu et absentes du log (tribus de la partie, MMR).
 - **Fair play** : n'affiche que ce qu'un joueur peut voir en jouant normalement.
 - **Vie privée** : tout est local, aucune télémétrie.
 
