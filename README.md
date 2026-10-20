@@ -35,11 +35,11 @@ L'application proposera de faire ces deux réglages pour vous, avec votre accord
 ## Disposition de l'overlay
 
 - **En haut au milieu** : probabilités du combat en cours ou à venir (létal · victoire · égalité · défaite · létal).
-- **À gauche** : icônes des tribus du lobby (« ? » = probable), classement des joueurs (PV = vie + armure), pool, mécaniques de saison, dernier plateau du prochain adversaire.
+- **À gauche** : icônes des tribus du lobby (« ? » = probable ; ✎ pour cocher les 5 tribus que le jeu affiche « Dans cette partie », le log ne les contenant pas), classement des joueurs (PV + armure), mécaniques de saison avec l'image de la divinité de la partie, dernier plateau du prochain adversaire (bouton « Voir »).
 - **En haut à droite** : tour, taverne, or, minuteur, PV, triples, et trois boutons cliquables : serviteurs et probabilités, historique, réglages.
 - **À droite du pouvoir héroïque** (recrutement) : rafraîchissements gratuits, bonus des gemmes de sang, bonus des sorts de taverne, bonus des serviteurs de la taverne (calculés d'après la boutique affichée).
 
-Chaque panneau se déplace (Ctrl+Maj+U) et se masque (Réglages › Sections).
+Chaque panneau se déplace (Ctrl+Maj+U) et se masque (Réglages › Sections). Options désactivées par défaut : ligne « Pool par niveau », heure, simulation masquée tant qu'on ne clique pas dessus.
 
 ## Installer
 

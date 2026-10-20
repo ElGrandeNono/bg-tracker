@@ -7,7 +7,7 @@ import { buildPoolCatalog, loadCardDb, type CardDb } from '@bgt/data';
 import { simulate } from '@bgt/sim';
 import { buildSimRequest } from '../main/combatSim.js';
 import { tavernBuffs } from '../main/tavernBuffs.js';
-import { loadTribeArt } from '../main/tribeArt.js';
+import { cardArt, loadTribeArt } from '../main/tribeArt.js';
 import {
   currentPoolRules as S14_POOL_RULES,
   currentSeason,
@@ -73,6 +73,9 @@ try {
       for (const m of p.lastBoard?.minions ?? []) ids.add(m.cardId);
     }
     for (const id of v.season?.shownCardIds ?? []) ids.add(id);
+    const dbf = v.season?.counters.deityDbfId;
+    const deity = dbf === undefined ? undefined : db.byDbfId(dbf)?.id;
+    if (deity !== undefined) ids.add(deity);
   }
   names = Object.fromEntries([...ids].map((id) => [id, db?.name(id) ?? id]));
 } catch (e) {
@@ -106,6 +109,11 @@ const frames: OverlayPayload[] = views.map((view) => ({
   timerEndsAt: undefined,
   pool: catalog.length === 0 ? undefined : poolPayload(view, catalog, S14_POOL_RULES),
   combatSim: demoSim(view),
+  manualTribes: undefined,
+  deityCardId: (() => {
+    const dbf = view.season?.counters.deityDbfId;
+    return dbf === undefined ? undefined : db?.byDbfId(dbf)?.id;
+  })(),
   tavernBuffs: tavernBuffs(view.shop, (id) => {
     const info = db?.byId(id);
     const c = catalog.find((x) => x.id === id);
@@ -120,7 +128,16 @@ await writeFile(join(dirname(out), 'demo-catalog.json'), JSON.stringify(uiCatalo
 // Images des tribus (HearthstoneJSON, cache de dev hors dépôt) : jamais dans l'application.
 await writeFile(
   join(dirname(out), 'demo-tribe-art.json'),
-  JSON.stringify(await loadTribeArt(catalog, join(cacheDir, '..', 'art'))),
+  JSON.stringify({
+    ...(await loadTribeArt(catalog, join(cacheDir, '..', 'art'))),
+    ...Object.fromEntries(
+      await Promise.all(
+        [...new Set(frames.map((f) => f.deityCardId).filter((x) => x !== undefined))].map(
+          async (id) => [`card:${id}`, await cardArt(join(cacheDir, '..', 'art'), id)] as const,
+        ),
+      ),
+    ),
+  }),
 );
 
 // Historique de démonstration : les parties des fixtures, enregistrées comme en direct puis

@@ -33,6 +33,8 @@ function OverlayButton(props: {
   label: string;
   onClick: () => void;
   children: React.ReactNode;
+  className?: string;
+  pressed?: boolean;
 }): React.JSX.Element {
   const bridge = useContext(BridgeContext);
   useEffect(
@@ -44,9 +46,10 @@ function OverlayButton(props: {
   return (
     <button
       type="button"
-      className="ov-button"
+      className={props.className ?? 'ov-button'}
       title={props.label}
       aria-label={props.label}
+      aria-pressed={props.pressed}
       onMouseEnter={() => {
         bridge?.setInteractive(true);
       }}
@@ -165,6 +168,24 @@ function Panel(props: {
 
 // ------------------------------------------------------------------ barre du joueur
 
+/** Heure locale (option Réglages › Afficher l'heure). */
+function Clock({ locale }: { locale: string }): React.JSX.Element {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => {
+      setNow(new Date());
+    }, 10_000);
+    return () => {
+      clearInterval(id);
+    };
+  }, []);
+  return (
+    <span className="bar__item bar__clock">
+      <b>{now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</b>
+    </span>
+  );
+}
+
 function formatTimer(ms: number): string {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -209,6 +230,7 @@ function TopBar({ p, now }: { p: OverlayPayload; now: number }): React.JSX.Eleme
       <span className="bar__item" title={b.triplesHint}>
         ✦ <b>{l.triples ?? 0}</b>
       </span>
+      {p.settings.showClock && <Clock locale={t.locale} />}
     </div>
   );
 }
@@ -272,7 +294,8 @@ function PlayerRow({
             : t.healthHint
         }
       >
-        {pl.health === undefined ? '–' : pl.health + (pl.armor ?? 0)}
+        {pl.health ?? '–'}
+        {(pl.armor ?? 0) > 0 && <small className="row__armor">+{pl.armor}</small>}
       </span>
       {!compact && (
         <span className="row__triples" title={t.triplesHint}>
@@ -292,7 +315,7 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
     view.players.find((x) => x.isCurrentOpponent) ?? view.players.find((x) => x.isNextOpponent);
   return (
     <div className="lobby">
-      {s.tribes && <TribeIcons view={view} />}
+      {s.tribes && <TribeIcons view={view} manual={p.manualTribes} />}
       {s.lobby && (
         <ol className="rows">
           {view.players.map((pl) => (
@@ -300,7 +323,7 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
           ))}
         </ol>
       )}
-      {!settings.compact && s.pool && <PoolSummary p={p} />}
+      {!settings.compact && s.poolByTier && <PoolSummary p={p} />}
       {!settings.compact && s.season && <SeasonPanel p={p} />}
       {focus !== undefined && s.opponentBoard && (
         <section className="board">
@@ -312,14 +335,7 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
           {focus.lastBoard === undefined ? (
             <p className="muted">{t.boardNeverSeen}</p>
           ) : (
-            <>
-              <p className="muted">{t.boardSeen(focus.lastBoard.round)}</p>
-              <ol className="minions">
-                {focus.lastBoard.minions.map((m, i) => (
-                  <Minion key={`${m.cardId}-${i}`} m={m} names={names} />
-                ))}
-              </ol>
-            </>
+            <OpponentBoard board={focus.lastBoard} names={names} />
           )}
         </section>
       )}
@@ -336,7 +352,25 @@ const pctOf = (x: number): string => `${Math.round(x * 100)} %`;
 function CombatSim({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const sim = p.combatSim;
   const all = useI18n();
+  const [revealed, setRevealed] = useState<string | undefined>();
   if (sim === undefined) return null;
+  // Option « simulation au clic » : masquée jusqu'au clic, pour chaque nouveau plateau simulé.
+  const key = `${sim.context}-${sim.opponentPlayerId}-${sim.boardRound}`;
+  if (p.settings.simOnClick && revealed !== key) {
+    return (
+      <div className="sim">
+        <OverlayButton
+          className="ov-link sim__reveal"
+          label={all.sim.reveal}
+          onClick={() => {
+            setRevealed(key);
+          }}
+        >
+          {all.sim.reveal}
+        </OverlayButton>
+      </div>
+    );
+  }
   const s = sim.summary;
   const t = all.sim;
   const avg = (x: number): string => x.toLocaleString(all.locale, { maximumFractionDigits: 1 });
@@ -371,10 +405,69 @@ function CombatSim({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   );
 }
 
-/** Icônes des tribus du lobby (identifiées, puis probables en pointillés avec « ? »). */
-function TribeIcons({ view }: { view: VisibleView }): React.JSX.Element {
+/** Dernier plateau vu d'un adversaire : replié par défaut, un clic l'affiche. */
+function OpponentBoard({
+  board,
+  names,
+}: {
+  board: NonNullable<VisiblePlayer['lastBoard']>;
+  names: Names;
+}): React.JSX.Element {
+  const t = useI18n().lobby;
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <p className="muted board__seen">
+        {t.boardSeen(board.round)}{' '}
+        <OverlayButton
+          className="ov-link"
+          label={open ? t.hideBoard : t.showBoard}
+          pressed={open}
+          onClick={() => {
+            setOpen(!open);
+          }}
+        >
+          {open ? t.hideBoard : t.showBoard}
+        </OverlayButton>
+      </p>
+      {open && (
+        <ol className="minions">
+          {board.minions.map((m, i) => (
+            <Minion key={`${m.cardId}-${i}`} m={m} names={names} />
+          ))}
+        </ol>
+      )}
+    </>
+  );
+}
+
+/** Illustration recadrée (les images 256x de HearthstoneJSON ont des bandes blanches). */
+function Art({ src, fallback }: { src: string | undefined; fallback: string }): React.JSX.Element {
+  return src === undefined ? (
+    <span className="tribe__badge">{fallback}</span>
+  ) : (
+    <span className="tribe__frame">
+      <img className="tribe__art" src={src} alt="" />
+    </span>
+  );
+}
+
+/**
+ * Icônes des tribus du lobby : identifiées, puis probables (pointillés, « ? »). Le jeu affiche
+ * les tribus de la partie mais le log ne les contient pas : le joueur peut les cocher (✎).
+ */
+function TribeIcons({
+  view,
+  manual,
+}: {
+  view: VisibleView;
+  manual: readonly string[] | undefined;
+}): React.JSX.Element {
   const m = useI18n();
   const art = useContext(TribeArtContext);
+  const bridge = useContext(BridgeContext);
+  const [picking, setPicking] = useState(false);
+  const [chosen, setChosen] = useState<readonly string[]>([]);
   const t = view.tribes;
   const probable = t.tribes
     .filter((x) => !x.identified && x.distinctCards >= 2)
@@ -384,34 +477,90 @@ function TribeIcons({ view }: { view: VisibleView }): React.JSX.Element {
     ...probable.map((x) => ({ tribe: x.tribe, sure: false })),
   ];
   const label = (x: string): string => m.tribes[x] ?? x;
+  // Tribus proposées : celles du pool (images chargées), sinon celles du dictionnaire.
+  const fromArt = Object.keys(art).filter((k) => !k.startsWith('card:'));
+  const all = (fromArt.length > 0 ? fromArt : Object.keys(m.tribes)).sort((a, b) =>
+    label(a).localeCompare(label(b), m.locale),
+  );
+  const send = (tribes: readonly string[]): void => {
+    bridge?.setLobbyTribes(view.gameIndex, tribes);
+  };
+  const toggle = (tribe: string): void => {
+    const next = chosen.includes(tribe) ? chosen.filter((x) => x !== tribe) : [...chosen, tribe];
+    setChosen(next);
+    if (next.length >= 5) {
+      send(next);
+      setPicking(false);
+    }
+  };
   return (
     <section className="tribes" title={m.lobby.tribesHint}>
       <h3 className="tribes__title">
-        {m.lobby.availableTribes} {t.identified.length}/{t.expected}
+        {m.lobby.availableTribes}{' '}
+        {manual === undefined ? `${t.identified.length}/${t.expected}` : '✔'}{' '}
+        <OverlayButton
+          className="ov-link"
+          label={m.lobby.pickTribes}
+          pressed={picking}
+          onClick={() => {
+            setChosen(manual ?? []);
+            setPicking(!picking);
+          }}
+        >
+          ✎
+        </OverlayButton>
       </h3>
-      <ul className="tribes__icons">
-        {items.map(({ tribe, sure }) => {
-          const src = art[tribe];
-          return (
+      {picking ? (
+        <>
+          <p className="tribes__help">{m.lobby.pickHelp}</p>
+          <ul className="tribes__icons tribes__icons--pick">
+            {all.map((tribe) => (
+              <li key={tribe} className={`tribe ${chosen.includes(tribe) ? 'tribe--chosen' : ''}`}>
+                <OverlayButton
+                  className="tribe__pick"
+                  label={label(tribe)}
+                  pressed={chosen.includes(tribe)}
+                  onClick={() => {
+                    toggle(tribe);
+                  }}
+                >
+                  <Art src={art[tribe]} fallback={label(tribe).slice(0, 2)} />
+                </OverlayButton>
+                <span className="tribe__name">{label(tribe)}</span>
+              </li>
+            ))}
+          </ul>
+          {manual !== undefined && (
+            <OverlayButton
+              className="ov-link"
+              label={m.lobby.resetTribes}
+              onClick={() => {
+                send([]);
+                setPicking(false);
+              }}
+            >
+              {m.lobby.resetTribes}
+            </OverlayButton>
+          )}
+        </>
+      ) : (
+        <ul className="tribes__icons">
+          {items.map(({ tribe, sure }) => (
             <li
               key={tribe}
               className={`tribe ${sure ? '' : 'tribe--probable'}`}
               title={sure ? label(tribe) : `${label(tribe)} ?`}
             >
-              {src === undefined ? (
-                <span className="tribe__badge">{label(tribe).slice(0, 2)}</span>
-              ) : (
-                <img className="tribe__art" src={src} alt="" />
-              )}
+              <Art src={art[tribe]} fallback={label(tribe).slice(0, 2)} />
               <span className="tribe__name">
                 {label(tribe)}
                 {sure ? '' : ' ?'}
               </span>
             </li>
-          );
-        })}
-        {items.length === 0 && <li className="muted">…</li>}
-      </ul>
+          ))}
+          {items.length === 0 && <li className="muted">…</li>}
+        </ul>
+      )}
     </section>
   );
 }
@@ -423,7 +572,8 @@ function Counters({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const l = p.view.local;
   const spells = p.view.season?.counters.tavernSpellBuff;
   const items: { key: string; icon: keyof typeof ICONS; value: string; hint: string }[] = [];
-  if (l.freeRefreshes !== undefined && l.freeRefreshes > 0) {
+  // Toujours affiché pendant le recrutement (0 compris) : on voit que le compteur est suivi.
+  if (l.freeRefreshes !== undefined) {
     items.push({
       key: 'r',
       icon: 'refresh',
@@ -474,6 +624,7 @@ function Counters({ p }: { p: OverlayPayload }): React.JSX.Element | null {
 function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const s = p.view.season;
   const t = useI18n().season;
+  const art = useContext(TribeArtContext);
   if (s === undefined) return null;
   const n = (id: string): string => nameOf(p.names, id);
   const lines: React.ReactNode[] = [];
@@ -523,8 +674,23 @@ function SeasonPanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
 
   if (c.extraGoldNextTurn !== undefined && c.extraGoldNextTurn > 0)
     counters.push(t.extraGold(c.extraGoldNextTurn));
-  if (c.oldGod !== undefined) counters.push(t.deity(c.oldGod.attack, c.oldGod.health));
   if (counters.length > 0) lines.push(<li key="c">{counters.join(' · ')}</li>);
+  if (p.deityCardId !== undefined) {
+    lines.push(
+      <li key="g" className="deity">
+        <Art src={art[`card:${p.deityCardId}`]} fallback="✦" />
+        <span>
+          <span className="season__label">{t.deityLabel}</span> <b>{n(p.deityCardId)}</b>
+          {c.oldGod !== undefined && (
+            <small>
+              {' '}
+              {c.oldGod.attack}/{c.oldGod.health}
+            </small>
+          )}
+        </span>
+      </li>,
+    );
+  }
   if (lines.length === 0) return null;
   return <ul className="season">{lines}</ul>;
 }

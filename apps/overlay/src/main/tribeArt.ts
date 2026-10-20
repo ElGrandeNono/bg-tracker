@@ -25,7 +25,8 @@ export function representativeCards(catalog: readonly PoolCard[]): Record<string
   return Object.fromEntries(Object.entries(out).map(([t, c]) => [t, c.id]));
 }
 
-async function artDataUrl(cacheDir: string, cardId: string): Promise<string | undefined> {
+/** Illustration d'une carte (data URL), depuis le cache local ou HearthstoneJSON. */
+export async function cardArt(cacheDir: string, cardId: string): Promise<string | undefined> {
   if (!/^[A-Za-z0-9_]+$/.test(cardId)) return undefined;
   const file = join(cacheDir, `${cardId}.jpg`);
   try {
@@ -52,9 +53,7 @@ export async function loadTribeArt(
 ): Promise<Record<string, string>> {
   const reps = representativeCards(catalog);
   const entries = await Promise.all(
-    Object.entries(reps).map(
-      async ([tribe, id]) => [tribe, await artDataUrl(cacheDir, id)] as const,
-    ),
+    Object.entries(reps).map(async ([tribe, id]) => [tribe, await cardArt(cacheDir, id)] as const),
   );
   return Object.fromEntries(entries.filter((e): e is [string, string] => e[1] !== undefined));
 }

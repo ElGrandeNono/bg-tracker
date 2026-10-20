@@ -88,6 +88,7 @@ export function demoBridge(): BgtBridge {
       window.open('./#dashboard', '_blank');
     },
     setInteractive() {},
+    setLobbyTribes() {},
     onTribeArt(l) {
       void fetch('./demo-tribe-art.json')
         .then((r) => r.json() as Promise<Record<string, string>>)

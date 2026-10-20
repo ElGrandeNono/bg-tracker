@@ -37,14 +37,14 @@ describe('réglages de l’overlay', () => {
     const s = applyPatch(cur, {
       language: 'en',
       theme: 'contrast',
-      sections: { pool: false },
+      sections: { poolByTier: true },
       alerts: { sound: true },
       streamer: { enabled: true, port: 80 },
       opacity: 9,
     });
     expect(s.language).toBe('en');
     expect(s.theme).toBe('contrast');
-    expect(s.sections).toEqual({ ...DEFAULT_SETTINGS.sections, pool: false });
+    expect(s.sections).toEqual({ ...DEFAULT_SETTINGS.sections, poolByTier: true });
     expect(s.alerts.sound).toBe(true);
     expect(s.streamer.enabled).toBe(true);
     expect(s.streamer.port).toBe(1024); // ports privilégiés refusés

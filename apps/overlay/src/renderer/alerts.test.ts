@@ -70,6 +70,8 @@ describe('alertes : déclenchement unique', () => {
       pool: undefined,
       combatSim: undefined,
       tavernBuffs: [],
+      manualTribes: undefined,
+      deityCardId: undefined,
     };
     const fired = new Set<string>();
     const first = dueAlerts(p, now, MESSAGES.fr, fired);

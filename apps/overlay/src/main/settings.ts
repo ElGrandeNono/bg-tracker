@@ -61,6 +61,8 @@ export function sanitizeSettings(raw: unknown): OverlaySettings {
       port: Math.round(clamp(obj(o.streamer).port, 1024, 65535, d.streamer.port)),
     },
     autoUpdate: typeof o.autoUpdate === 'boolean' ? o.autoUpdate : d.autoUpdate,
+    showClock: typeof o.showClock === 'boolean' ? o.showClock : d.showClock,
+    simOnClick: typeof o.simOnClick === 'boolean' ? o.simOnClick : d.simOnClick,
     locked: true, // toujours verrouillé au démarrage : jamais d'overlay qui capte la souris par surprise
     // Toujours visible au démarrage : un overlay masqué la veille (Ctrl+Maj+H) semblait cassé.
     hidden: false,

@@ -40,7 +40,7 @@ import { catalogCards, poolPayload } from './poolPayload.js';
 import { currentPoolRules, currentSeason, overlayView } from './season.js';
 import { buildSimRequest, type SimRequest } from './combatSim.js';
 import { tavernBuffs, type BaseCard } from './tavernBuffs.js';
-import { loadTribeArt } from './tribeArt.js';
+import { cardArt, loadTribeArt } from './tribeArt.js';
 import { HistoryService } from './history.js';
 import { SimulationPool } from '@bgt/sim';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
@@ -174,6 +174,29 @@ let cardDb: CardDb | undefined;
 let catalogById = new Map<string, PoolCard>();
 /** Images des tribus (data URL), chargées une fois par build. */
 let tribeArt: Record<string, string> | undefined;
+/** Images de cartes déjà demandées (divinité). */
+const artRequested = new Set<string>();
+/** Tribus du lobby cochées par le joueur, par partie (`gameIndex`). */
+const manualTribes = new Map<number, readonly string[]>();
+
+const artDir = (): string => join(app.getPath('userData'), 'art');
+
+function addArt(art: Readonly<Record<string, string>>): void {
+  tribeArt = { ...tribeArt, ...art };
+  for (const w of [win, browserWin]) {
+    if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
+      w.webContents.send(CHANNELS.tribeArt, tribeArt);
+    }
+  }
+}
+
+function ensureCardArt(cardId: string): void {
+  if (artRequested.has(cardId)) return;
+  artRequested.add(cardId);
+  void cardArt(artDir(), cardId).then((url) => {
+    if (url !== undefined) addArt({ [`card:${cardId}`]: url });
+  });
+}
 /** La souris survole un bouton de l'overlay : il reçoit les clics. */
 let overButton = false;
 
@@ -220,13 +243,8 @@ async function ensureCardDb(build: string | undefined): Promise<void> {
     poolCatalog = buildPoolCatalog(result.db);
     uiCatalog = catalogCards(result.db, poolCatalog, poolRules);
     catalogById = new Map(poolCatalog.map((c) => [c.id, c]));
-    void loadTribeArt(poolCatalog, join(app.getPath('userData'), 'art')).then((art) => {
-      tribeArt = art;
-      for (const w of [win, browserWin]) {
-        if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
-          w.webContents.send(CHANNELS.tribeArt, art);
-        }
-      }
+    void loadTribeArt(poolCatalog, artDir()).then((art) => {
+      addArt(art);
     });
     for (const w of [win, browserWin]) {
       if (w !== undefined && !w.isDestroyed() && readyContents.has(w.webContents.id)) {
@@ -271,20 +289,34 @@ function schedulePush(): void {
 function push(): void {
   // Uniquement ce que le client a déjà affiché (horloge PowerTaskList, voir core/pipeline.ts).
   const shown = pipeline.displayed;
-  const view = overlayView(shown);
+  const raw = overlayView(shown);
+  // Tribus cochées par le joueur pour cette partie : elles remplacent la déduction (pool, stats).
+  const manual = manualTribes.get(raw.gameIndex);
+  const view: typeof raw =
+    manual === undefined
+      ? raw
+      : { ...raw, tribes: { ...raw.tribes, identified: manual, expected: manual.length } };
+  const deityDbf = view.season?.counters.deityDbfId;
+  const deityCardId = deityDbf === undefined ? undefined : cardDb?.byDbfId(deityDbf)?.id;
+  if (deityCardId !== undefined) ensureCardArt(deityCardId);
   // L'historique n'enregistre que le suivi en direct (un replay de test ne le pollue pas).
   if (status.source === 'live') history?.observe(view);
   if (win === undefined || !rendererReady) return;
   void ensureCardDb(view.build);
   const payload: OverlayPayload = {
     view,
-    names: namesFor(view),
+    names: {
+      ...namesFor(view),
+      ...(deityCardId === undefined ? {} : { [deityCardId]: cardDb?.name(deityCardId) ?? '' }),
+    },
     status,
     settings,
     timerEndsAt: view.phase === 'recruit' ? timerEndsAt : undefined,
     pool: poolCatalog.length === 0 ? undefined : poolPayload(view, poolCatalog, poolRules),
     combatSim: updateSimulation(buildSimRequest(view, cardDb)),
     tavernBuffs: tavernBuffs(view.shop, baseCard),
+    manualTribes: manual,
+    deityCardId,
   };
   // Toutes les fenêtres reçoivent la vue : langue et thème suivent les réglages partout.
   for (const w of [win, browserWin, dashboardWin, settingsWin]) {
@@ -679,6 +711,13 @@ ipcMain.on(CHANNELS.setInteractive, (e, on: unknown) => {
   if (win === undefined || e.sender.id !== win.webContents.id) return;
   overButton = on === true;
   win.setIgnoreMouseEvents(settings.locked && !overButton, { forward: true });
+});
+ipcMain.on(CHANNELS.setLobbyTribes, (_e, gameIndex: unknown, tribes: unknown) => {
+  if (typeof gameIndex !== 'number' || !Array.isArray(tribes)) return;
+  const list = tribes.filter((t): t is string => typeof t === 'string' && /^[A-Z_]{2,20}$/.test(t));
+  if (list.length === 0) manualTribes.delete(gameIndex);
+  else manualTribes.set(gameIndex, [...new Set(list)].slice(0, 10));
+  schedulePush();
 });
 ipcMain.on(CHANNELS.openSettings, () => {
   openSettings();

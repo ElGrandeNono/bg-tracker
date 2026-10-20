@@ -25,7 +25,7 @@ const SECTIONS: readonly (keyof SectionVisibility)[] = [
   'bar',
   'lobby',
   'tribes',
-  'pool',
+  'poolByTier',
   'season',
   'simulation',
   'opponentBoard',
@@ -153,6 +153,12 @@ export function Settings({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
           </label>
           {check(m.compact, s.compact, (v) => {
             patch({ compact: v });
+          })}
+          {check(m.showClock, s.showClock, (v) => {
+            patch({ showClock: v });
+          })}
+          {check(m.simOnClick, s.simOnClick, (v) => {
+            patch({ simOnClick: v });
           })}
           <button
             onClick={() => {

@@ -279,7 +279,7 @@ small {
   width: 2.9rem;
 }
 
-.tribe__art,
+.tribe__frame,
 .tribe__badge {
   width: 2.3rem;
   height: 2.3rem;
@@ -296,7 +296,7 @@ small {
   font-weight: 700;
 }
 
-.tribe--probable .tribe__art,
+.tribe--probable .tribe__frame,
 .tribe--probable .tribe__badge {
   border-style: dashed;
   border-color: var(--muted);
@@ -1030,6 +1030,97 @@ small {
   white-space: nowrap;
 }
 
-.counter .icon {
+/* Illustrations HearthstoneJSON 256x : portrait centré sur fond blanc → zoom pour remplir le rond. */
+.tribe__frame {
+  display: block;
+  overflow: hidden;
+  flex: none;
+}
+
+.tribe__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 30%;
+  transform: scale(1.5);
+}
+
+.tribe__pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.tribe__pick .tribe__frame,
+.tribe__pick .tribe__badge {
+  border-color: var(--muted);
+  opacity: 0.55;
+}
+
+.tribe--chosen .tribe__frame,
+.tribe--chosen .tribe__badge {
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.tribes__icons--pick {
+  flex-wrap: wrap;
+}
+
+.tribes__help {
+  margin: 0 0 0.35rem;
+  font-size: 0.75em;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Bouton texte de l'overlay (Voir, ✎, simulation au clic) */
+.ov-link {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg-strong);
   color: var(--accent);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.ov-link:hover,
+.ov-link[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+.sim__reveal {
+  padding: 0.35rem 0.8rem;
+}
+
+.row__armor {
+  color: var(--muted);
+}
+
+.deity {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.deity .tribe__frame,
+.deity .tribe__badge {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+/* Compteurs : pastille ronde contrastée autour de chaque pictogramme */
+.counter .icon {
+  box-sizing: content-box;
+  width: 1rem;
+  height: 1rem;
+  padding: 0.22rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #1b1e28;
 }

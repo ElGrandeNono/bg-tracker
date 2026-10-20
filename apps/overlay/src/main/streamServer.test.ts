@@ -32,6 +32,8 @@ async function payloadFromFixture(): Promise<OverlayPayload> {
     pool: { tiers: [], byTribe: {}, lobbyComplete: true, unverifiedRules: [], cards: {} },
     combatSim: undefined,
     tavernBuffs: [],
+    manualTribes: undefined,
+    deityCardId: undefined,
   };
 }
 

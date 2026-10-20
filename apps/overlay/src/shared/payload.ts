@@ -16,6 +16,7 @@ export const CHANNELS = {
   openSettings: 'bgt:open-settings',
   updateSettings: 'bgt:update-settings',
   setInteractive: 'bgt:set-interactive',
+  setLobbyTribes: 'bgt:set-lobby-tribes',
   tribeArt: 'bgt:tribe-art',
   historyList: 'bgt:history-list',
   historyGet: 'bgt:history-get',
@@ -85,7 +86,8 @@ export interface SectionVisibility {
   readonly bar: boolean;
   readonly lobby: boolean;
   readonly tribes: boolean;
-  readonly pool: boolean;
+  /** Ligne « Pool par niveau » (désactivée par défaut ; nouvelle clé en 0.8.2). */
+  readonly poolByTier: boolean;
   readonly season: boolean;
   readonly simulation: boolean;
   readonly opponentBoard: boolean;
@@ -123,6 +125,10 @@ export interface OverlaySettings {
   readonly streamer: StreamerSettings;
   /** Vérification des mises à jour sur GitHub : désactivée par défaut (accès réseau). */
   readonly autoUpdate: boolean;
+  /** Heure locale dans le panneau d'état (désactivée par défaut). */
+  readonly showClock: boolean;
+  /** Résultat de la simulation masqué tant qu'on ne clique pas dessus. */
+  readonly simOnClick: boolean;
   /** Verrouillé = click-through ; déverrouillé = panneaux déplaçables. */
   readonly locked: boolean;
   readonly hidden: boolean;
@@ -145,7 +151,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
     bar: true,
     lobby: true,
     tribes: true,
-    pool: true,
+    poolByTier: false,
     season: true,
     simulation: true,
     opponentBoard: true,
@@ -160,6 +166,8 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
     hidePool: false,
   },
   autoUpdate: false,
+  showClock: false,
+  simOnClick: false,
   locked: true,
   hidden: false,
   scale: 1,
@@ -189,6 +197,10 @@ export interface OverlayPayload {
    * stats et celles de la carte (HearthstoneJSON). Aucun tag du log ne les donne directement.
    */
   readonly tavernBuffs: readonly TavernBuff[];
+  /** Tribus du lobby cochées par le joueur (elles remplacent la déduction) ; sinon absent. */
+  readonly manualTribes: readonly string[] | undefined;
+  /** Divinité de la partie (cardId HearthstoneJSON), si connue. */
+  readonly deityCardId: string | undefined;
 }
 
 export interface TavernBuff {
@@ -265,7 +277,15 @@ export interface BgtBridge {
    * (vrai) ou redevenir transparent aux clics (faux).
    */
   setInteractive(on: boolean): void;
-  /** Image (data URL, HearthstoneJSON, en cache local) d'un serviteur représentatif par tribu. */
+  /**
+   * Tribus du lobby cochées par le joueur pour la partie `gameIndex` (le jeu les affiche, le log
+   * ne les contient pas) ; liste vide = revenir à la déduction.
+   */
+  setLobbyTribes(gameIndex: number, tribes: readonly string[]): void;
+  /**
+   * Images (data URL, HearthstoneJSON, en cache local) : clé = tribe (serviteur représentatif)
+   * ou `card:<cardId>` (divinité).
+   */
   onTribeArt(listener: (art: Readonly<Record<string, string>>) => void): () => void;
   readonly history: HistoryBridge;
 }

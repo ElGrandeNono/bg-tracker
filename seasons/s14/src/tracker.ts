@@ -76,6 +76,11 @@ export interface S14View extends SeasonViewBase {
     readonly spellsPlayed: number | undefined;
     readonly extraGoldNextTurn: number | undefined;
     readonly oldGod: { readonly attack: number; readonly health: number } | undefined;
+    /**
+     * Divinité de la partie (C’Thun, Y’Shaarj…) : dbfId lu sur la GameEntity
+     * (`BACON_GLOBAL_OLD_GOD_DBID`, visible en jeu au-dessus du héros ; logs du 18 et du 20/10/2026).
+     */
+    readonly deityDbfId: number | undefined;
   };
 }
 
@@ -220,6 +225,7 @@ export const S14_SEASON: SeasonModule<S14State, S14View> = {
           godAtk !== undefined && godHp !== undefined
             ? { attack: godAtk, health: godHp }
             : undefined,
+        deityDbfId: numTag(gameEntity, 'BACON_GLOBAL_OLD_GOD_DBID'),
       },
     };
   },
