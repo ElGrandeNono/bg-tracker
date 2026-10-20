@@ -132,6 +132,10 @@ describe('saison 14 : partie complète du 18/10/2026', () => {
     });
   });
 
+  it('pas de divinité (aucun sceau BG_OldGod) malgré BACON_GLOBAL_OLD_GOD_DBID sur la partie', () => {
+    expect(r.views.every((v) => v.counters.deityDbfId === undefined)).toBe(true);
+  });
+
   it('fair-play : la vue de saison ne cite que des cartes montrées', () => {
     expect(r.leaks).toEqual([]);
   });
@@ -148,6 +152,7 @@ describe('saison 14 : partie aux Aberrations du 18/10/2026', () => {
     expect(v.darkGifts?.used).toBe(2);
     expect(v.darkGifts?.gifts.map((g) => g.minionCardId)).toEqual(['BG36_099', 'BG36_113']);
     expect(v.counters.oldGod).toEqual({ attack: 5, health: 3 });
+    expect(v.counters.deityDbfId).toBe(130610); // C’Thun (BGFYM_000)
     expect(v.trinkets.every((t) => t.kind === 'pending')).toBe(true);
   });
 

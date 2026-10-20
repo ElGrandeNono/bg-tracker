@@ -315,7 +315,9 @@ function Lobby({ p }: { p: OverlayPayload }): React.JSX.Element {
     view.players.find((x) => x.isCurrentOpponent) ?? view.players.find((x) => x.isNextOpponent);
   return (
     <div className="lobby">
-      {s.tribes && <TribeIcons view={view} manual={p.manualTribes} />}
+      {s.tribes && (
+        <TribeIcons view={view} manual={p.manualTribes} screenReading={settings.screenReading} />
+      )}
       {s.lobby && (
         <ol className="rows">
           {view.players.map((pl) => (
@@ -459,9 +461,11 @@ function Art({ src, fallback }: { src: string | undefined; fallback: string }): 
 function TribeIcons({
   view,
   manual,
+  screenReading,
 }: {
   view: VisibleView;
   manual: readonly string[] | undefined;
+  screenReading: boolean;
 }): React.JSX.Element {
   const m = useI18n();
   const art = useContext(TribeArtContext);
@@ -509,6 +513,17 @@ function TribeIcons({
         >
           ✎
         </OverlayButton>
+        {!screenReading && manual === undefined && (
+          <OverlayButton
+            className="ov-link"
+            label={m.lobby.enableScreenReading}
+            onClick={() => {
+              bridge?.updateSettings({ screenReading: true });
+            }}
+          >
+            📷
+          </OverlayButton>
+        )}
       </h3>
       {picking ? (
         <>
@@ -728,8 +743,7 @@ function noticesOf(p: OverlayPayload, m: Messages): string[] {
   if (p.view.isBattlegrounds && p.view.mode === 'duos') msgs.push(t.duos);
   else if (p.view.isBattlegrounds && p.view.mode === 'unknown') msgs.push(t.unknownMode);
   if (p.view.warnings.includes('truncated')) msgs.push(t.truncated);
-  if (p.view.warnings.includes('interrupted')) msgs.push(t.interrupted);
-  if (p.view.warnings.includes('abandoned')) msgs.push(t.abandoned);
+
   if (p.status.cardData === 'stale') msgs.push(t.staleCards);
   if (p.status.cardData === 'error') msgs.push(t.noCards);
   if (!p.settings.locked) msgs.push(t.unlocked);
@@ -787,7 +801,17 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
       {children}
     </Panel>
   );
-  const inProgress = view.outcome !== 'finished';
+  // Partie terminée (ou abandonnée, interrompue) : retour à l'état d'attente, comme au lancement.
+  const inProgress = view.outcome === 'inProgress' && !payload.status.stale;
+  const lastGame = !view.isBattlegrounds
+    ? undefined
+    : view.outcome === 'finished'
+      ? t.lobby.lastGame(view.finalPlace)
+      : view.outcome === 'abandoned'
+        ? t.lobby.lastAbandoned
+        : view.outcome === 'interrupted'
+          ? t.lobby.lastInterrupted
+          : undefined;
   const showCounters =
     s.counters && inProgress && view.phase === 'recruit' && view.local.techLevel !== undefined;
 
@@ -812,7 +836,12 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
             'status',
             <div className="status">
               {solo && s.bar && inProgress && <TopBar p={payload} now={now} />}
-              {!view.isBattlegrounds && <span className="status__idle">{t.lobby.waiting}</span>}
+              {(!view.isBattlegrounds || !inProgress) && (
+                <span className="status__idle">
+                  {t.lobby.waiting}
+                  {lastGame !== undefined && ` · ${lastGame}`}
+                </span>
+              )}
               <div className="status__buttons">
                 <OverlayButton
                   label={t.buttons.browser}
@@ -846,18 +875,7 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
             s.simulation &&
             payload.combatSim !== undefined &&
             panel('sim', <CombatSim p={payload} />)}
-          {solo &&
-            panel(
-              'players',
-              <>
-                {!inProgress && (
-                  <div className="final">
-                    {t.lobby.finalPlace} <b>{view.finalPlace ?? '?'}</b>
-                  </div>
-                )}
-                <Lobby p={payload} />
-              </>,
-            )}
+          {solo && inProgress && panel('players', <Lobby p={payload} />)}
           {solo && showCounters && panel('counters', <Counters p={payload} />)}
         </div>
       </TribeArtContext.Provider>

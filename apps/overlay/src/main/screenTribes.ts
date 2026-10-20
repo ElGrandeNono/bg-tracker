@@ -7,17 +7,34 @@ import { matchTribes } from './tribeNames.js';
 /**
  * Lecture des tribus de la partie à l'écran (règle n°1 assouplie le 20/10/2026, voir CLAUDE.md).
  *
- * - Opt-in (`screenReading`, désactivé par défaut), pendant le choix du héros seulement.
- * - Capture de la SEULE fenêtre Hearthstone (desktopCapturer), recadrée sur le bandeau
- *   « Choisissez un héros » qui liste les tribus ; OCR local (tesseract.js, données fra + eng
- *   embarquées). Aucune image n'est conservée ni envoyée.
+ * - Opt-in (`screenReading`, désactivé par défaut).
+ * - Capture de la SEULE fenêtre Hearthstone (desktopCapturer), recadrée sur une zone qui liste
+ *   les tribus : le bandeau « Choisissez un héros », puis pendant la partie l'infobulle
+ *   « Dans cette partie » (affichée quand le JOUEUR survole la gemme ; rien n'est simulé).
+ * - OCR local (tesseract.js, données fra + eng embarquées). Aucune image conservée ni envoyée
+ *   (sauf `BGT_DEBUG=1` : dernière zone lue écrite dans le dossier de l'application).
  * - Résultat retenu seulement si exactement `expected` tribus distinctes sont reconnues.
  */
 
-/** Zone du bandeau, en fraction de la fenêtre (capture du 20/10/2026, marge pour la barre de titre). */
-const BANNER = { x: 0.4, y: 0.12, width: 0.24, height: 0.13 } as const;
-const INTERVAL_MS = 1500;
-const MAX_ATTEMPTS = 40;
+/**
+ * Zone de l'interface du jeu. L'interface s'adapte à la HAUTEUR de la fenêtre et reste centrée :
+ * `dx` (depuis le centre) et `width` en fraction de la hauteur, `y` et `height` aussi.
+ * Mesurées sur les captures de l'utilisateur du 20/10/2026 (1541×878, 1864×1000, 1488×1005),
+ * avec une marge pour la barre de titre d'une fenêtre.
+ */
+export interface Zone {
+  readonly dx: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Bandeau « Choisissez un héros » (liste des tribus sous le titre). */
+export const BANNER: Zone = { dx: -0.15, y: 0.11, width: 0.34, height: 0.13 };
+/** Infobulle « Dans cette partie » (sans la bulle « Pas dans cette partie » en dessous). */
+export const TOOLTIP: Zone = { dx: 0.38, y: 0.3, width: 0.27, height: 0.115 };
+
+const INTERVAL_MS = 2000;
 
 const require = createRequire(import.meta.url);
 
@@ -27,11 +44,12 @@ export class ScreenTribeReader {
   private worker: Promise<Worker> | undefined;
   private timer: NodeJS.Timeout | undefined;
   private gameIndex: number | undefined;
-  private attempts = 0;
   private busy = false;
 
   constructor(
     private readonly expected: () => number,
+    /** Choix du héros (bandeau) ou partie en cours (infobulle). */
+    private readonly heroSelection: () => boolean,
     private readonly onTribes: (gameIndex: number, tribes: readonly string[]) => void,
   ) {}
 
@@ -40,7 +58,6 @@ export class ScreenTribeReader {
     if (this.gameIndex === gameIndex) return;
     this.stop();
     this.gameIndex = gameIndex;
-    this.attempts = 0;
     this.timer = setInterval(() => {
       void this.tick();
     }, INTERVAL_MS);
@@ -58,15 +75,11 @@ export class ScreenTribeReader {
   private async tick(): Promise<void> {
     const gameIndex = this.gameIndex;
     if (gameIndex === undefined || this.busy) return;
-    if (++this.attempts > MAX_ATTEMPTS) {
-      this.stop();
-      return;
-    }
     this.busy = true;
     try {
       const shot = await captureWindow();
       if (shot === undefined) return;
-      const tribes = await this.read(shot);
+      const tribes = await this.read(shot, this.heroSelection() ? BANNER : TOOLTIP);
       if (tribes.length === this.expected() && this.gameIndex === gameIndex) {
         this.onTribes(gameIndex, tribes);
         this.stop();
@@ -78,10 +91,15 @@ export class ScreenTribeReader {
     }
   }
 
-  /** Tribus lues sur une image de la fenêtre du jeu (bandeau recadré). */
-  async read(image: NativeImage): Promise<string[]> {
+  /** Tribus lues dans une zone d'une image de la fenêtre du jeu. */
+  async read(image: NativeImage, zone: Zone): Promise<string[]> {
+    const png = zonePng(image, zone);
+    if (process.env.BGT_DEBUG === '1') {
+      await writeFile(join(app.getPath('userData'), 'ocr-last.png'), png);
+    }
     const worker = await this.ensureWorker();
-    const { data } = await worker.recognize(bannerPng(image));
+    const { data } = await worker.recognize(png);
+    if (process.env.BGT_DEBUG === '1') console.log(`[bgt] OCR brut : ${JSON.stringify(data.text)}`);
     return matchTribes(data.text);
   }
 
@@ -90,38 +108,37 @@ export class ScreenTribeReader {
    * dessine un bandeau factice avec les noms de 5 tribus, le capture et le lit.
    */
   async selfTest(): Promise<string[]> {
+    const W = 1600;
+    const H = 900;
     const w = new BrowserWindow({
       show: false,
-      width: 1600,
-      height: 900,
+      width: W,
+      height: H,
       useContentSize: true,
       webPreferences: { offscreen: true, sandbox: true, contextIsolation: true },
     });
     try {
-      const top = BANNER.y * 100 + 2;
-      const left = BANNER.x * 100 + 3;
+      const left = Math.round(W / 2 + (BANNER.dx + 0.03) * H);
+      const top = Math.round((BANNER.y + 0.02) * H);
       const html =
         `<body style="margin:0;background:#140c1c;font:bold 22px Arial,sans-serif">` +
-        `<div style="position:absolute;left:${left}%;top:${top}%;width:20%;color:#f3e6ff;white-space:nowrap;` +
+        `<div style="position:absolute;left:${left}px;top:${top}px;color:#f3e6ff;white-space:nowrap;` +
         `text-align:center;line-height:1.4">Aberrations, Dragons,<br>Morts-vivants, Pirates,<br>` +
         `Élémentaires</div></body>`;
       await w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
       await new Promise((r) => setTimeout(r, 500));
-      const shot = await w.webContents.capturePage();
-      if (process.env.BGT_DEBUG === '1') {
-        await writeFile(join(app.getPath('userData'), 'ocr-selftest.png'), bannerPng(shot));
-      }
-      return await this.read(shot);
+      return await this.read(await w.webContents.capturePage(), BANNER);
     } finally {
       w.destroy();
       this.stop();
     }
   }
 
-  /** Vérification de bout en bout sur une capture PNG/JPEG (option --ocr-test). */
-  async readFile(path: string): Promise<string[]> {
+  /** Vérification sur une capture PNG/JPEG (option --ocr-test) : bandeau puis infobulle. */
+  async readFile(path: string): Promise<{ banner: string[]; tooltip: string[] }> {
     try {
-      return await this.read(nativeImage.createFromPath(path));
+      const image = nativeImage.createFromPath(path);
+      return { banner: await this.read(image, BANNER), tooltip: await this.read(image, TOOLTIP) };
     } finally {
       this.stop();
     }
@@ -156,22 +173,30 @@ export class ScreenTribeReader {
 async function captureWindow(): Promise<NativeImage | undefined> {
   const sources = await desktopCapturer.getSources({
     types: ['window'],
-    thumbnailSize: { width: 1920, height: 1080 },
+    thumbnailSize: { width: 2560, height: 1440 },
     fetchWindowIcons: false,
   });
   const hs = sources.find((s) => s.name === 'Hearthstone');
   return hs === undefined || hs.thumbnail.isEmpty() ? undefined : hs.thumbnail;
 }
 
-/** Bandeau des tribus recadré (PNG). */
-function bannerPng(image: NativeImage): Buffer {
+/** Rectangle d'une zone dans une image de largeur × hauteur données (borné à l'image). */
+export function zoneRect(
+  zone: Zone,
+  width: number,
+  height: number,
+): { x: number; y: number; width: number; height: number } {
+  const x = Math.max(0, Math.round(width / 2 + zone.dx * height));
+  const y = Math.max(0, Math.round(zone.y * height));
+  return {
+    x,
+    y,
+    width: Math.min(width - x, Math.round(zone.width * height)),
+    height: Math.min(height - y, Math.round(zone.height * height)),
+  };
+}
+
+function zonePng(image: NativeImage, zone: Zone): Buffer {
   const { width, height } = image.getSize();
-  return image
-    .crop({
-      x: Math.round(BANNER.x * width),
-      y: Math.round(BANNER.y * height),
-      width: Math.round(BANNER.width * width),
-      height: Math.round(BANNER.height * height),
-    })
-    .toPNG();
+  return image.crop(zoneRect(zone, width, height)).toPNG();
 }

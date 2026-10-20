@@ -172,6 +172,7 @@ let status: OverlayStatus = {
   hsWindow: standalone ? 'ok' : 'notFound',
   cardData: 'loading',
   replayDone: false,
+  stale: false,
 };
 let cardDb: CardDb | undefined;
 /** Catalogue du pool par cardId (tribus des serviteurs de la boutique). */
@@ -183,8 +184,10 @@ const artRequested = new Set<string>();
 /** Tribus du lobby cochées par le joueur, par partie (`gameIndex`). */
 const manualTribes = new Map<number, readonly string[]>();
 /** Lecture des tribus à l'écran (opt-in), pendant le choix du héros. */
+let screenPhase: string = 'pending';
 const screenTribes = new ScreenTribeReader(
   () => 5,
+  () => screenPhase === 'heroSelection',
   (gameIndex, tribes) => {
     if (process.env.BGT_DEBUG === '1')
       console.log(`[bgt] tribus lues à l'écran : ${tribes.join(', ')}`);
@@ -225,6 +228,9 @@ let cardDbKey: string | undefined;
 let timerEndsAt: number | undefined;
 let lastRecruitCount = 0;
 let smokeScheduled = false;
+/** Dernière ligne de log reçue en direct (abandon détecté par le silence du log). */
+let lastLineAt = Date.now();
+const STALE_MS = 180_000;
 
 // ---------------------------------------------------------------- sécurité
 
@@ -310,14 +316,20 @@ function push(): void {
     manual === undefined
       ? raw
       : { ...raw, tribes: { ...raw.tribes, identified: manual, expected: manual.length } };
+  // Lecture des tribus à l'écran : au choix du héros (bandeau) puis pendant la partie (infobulle
+  // « Dans cette partie », quand le joueur survole la gemme), jusqu'à ce qu'elles soient connues.
+  screenPhase = raw.phase;
   if (
     settings.screenReading &&
     status.source === 'live' &&
-    raw.phase === 'heroSelection' &&
+    raw.isBattlegrounds &&
+    raw.mode === 'solo' &&
+    raw.outcome === 'inProgress' &&
+    raw.phase !== 'pending' &&
     !manualTribes.has(raw.gameIndex)
   ) {
     screenTribes.start(raw.gameIndex);
-  } else if (raw.phase !== 'heroSelection' || !settings.screenReading) {
+  } else {
     screenTribes.stop();
   }
   const deityDbf = view.season?.counters.deityDbfId;
@@ -333,7 +345,13 @@ function push(): void {
       ...namesFor(view),
       ...(deityCardId === undefined ? {} : { [deityCardId]: cardDb?.name(deityCardId) ?? '' }),
     },
-    status,
+    status: {
+      ...status,
+      stale:
+        status.source === 'live' &&
+        view.outcome === 'inProgress' &&
+        Date.now() - lastLineAt > STALE_MS,
+    },
     settings,
     timerEndsAt: view.phase === 'recruit' ? timerEndsAt : undefined,
     pool: poolCatalog.length === 0 ? undefined : poolPayload(view, poolCatalog, poolRules),
@@ -695,6 +713,7 @@ async function startSource(): Promise<void> {
   const watcher = new LogWatcher({ logsRoot: paths.logsRoot });
   let first = true;
   watcher.on('line', (l) => {
+    lastLineAt = Date.now();
     pipeline.feedLine(l);
   });
   watcher.on('fileChanged', (path) => {
@@ -801,8 +820,11 @@ void app.whenReady().then(async () => {
   }
   const ocrTest = args['ocr-test'];
   if (typeof ocrTest === 'string') {
-    const tribes = await screenTribes.readFile(ocrTest).catch((e: unknown) => [String(e)]);
-    console.log(`[bgt] OCR : ${tribes.join(', ')}`);
+    const r = await screenTribes
+      .readFile(ocrTest)
+      .catch((e: unknown) => ({ banner: [String(e)], tooltip: [] }));
+    console.log(`[bgt] OCR bandeau : ${r.banner.join(', ')}`);
+    console.log(`[bgt] OCR infobulle : ${r.tooltip.join(', ')}`);
     app.exit(0);
     return;
   }

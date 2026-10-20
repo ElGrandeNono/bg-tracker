@@ -99,6 +99,11 @@ const fr = {
     finalPlace: 'Place finale',
     availableTribes: 'Tribus du lobby',
     waiting: 'BG Tracker · en attente d’une partie Battlegrounds',
+    lastGame: (place: number | undefined) =>
+      `dernière partie : ${place === undefined ? '?' : `${place}e`}`,
+    lastAbandoned: 'dernière partie abandonnée',
+    lastInterrupted: 'dernière partie interrompue',
+    enableScreenReading: 'Lire les tribus à l’écran (choix du héros, infobulle de la gemme)',
   },
   sim: {
     win: 'V',
@@ -411,6 +416,10 @@ const en: Messages = {
     finalPlace: 'Final place',
     availableTribes: 'Lobby tribes',
     waiting: 'BG Tracker · waiting for a Battlegrounds game',
+    lastGame: (place) => `last game: ${place === undefined ? '?' : `#${place}`}`,
+    lastAbandoned: 'last game abandoned',
+    lastInterrupted: 'last game interrupted',
+    enableScreenReading: 'Read the tribes on screen (hero selection, gem tooltip)',
   },
   sim: {
     win: 'W',

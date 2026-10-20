@@ -77,11 +77,28 @@ export interface S14View extends SeasonViewBase {
     readonly extraGoldNextTurn: number | undefined;
     readonly oldGod: { readonly attack: number; readonly health: number } | undefined;
     /**
-     * Divinité de la partie (C’Thun, Y’Shaarj…) : dbfId lu sur la GameEntity
-     * (`BACON_GLOBAL_OLD_GOD_DBID`, visible en jeu au-dessus du héros ; logs du 18 et du 20/10/2026).
+     * Divinité en jeu (C’Thun, Y’Shaarj…) : dbfId lu sur le sceau `BG_OldGod` du joueur local,
+     * visible au-dessus du héros ; absent dans les parties sans divinité (voir `deityOf`).
      */
     readonly deityDbfId: number | undefined;
   };
+}
+
+/**
+ * Divinité de la partie du joueur local. La GameEntity porte TOUJOURS un
+ * `BACON_GLOBAL_OLD_GOD_DBID`, même dans les parties sans divinité : seule la présence d'une
+ * entité `BG_OldGod` (le sceau au-dessus du héros) indique qu'elle est en jeu, et son
+ * `BACON_EVOLUTION_CARD_ID` donne la carte (log du 20/10/2026 16:40 : 4 parties, sceaux présents
+ * dans les parties 1 et 3 seulement, celles où le joueur voyait une divinité).
+ */
+function deityOf(game: GameState, localId: number | undefined): number | undefined {
+  if (localId === undefined) return undefined;
+  for (const e of game.entities.values()) {
+    if (e.cardId !== 'BG_OldGod' || numTag(e, 'CONTROLLER') !== localId) continue;
+    const dbf = numTag(e, 'BACON_EVOLUTION_CARD_ID');
+    if (dbf !== undefined && dbf > 0) return dbf;
+  }
+  return undefined;
 }
 
 function localEntities(game: GameState): {
@@ -225,7 +242,7 @@ export const S14_SEASON: SeasonModule<S14State, S14View> = {
           godAtk !== undefined && godHp !== undefined
             ? { attack: godAtk, health: godHp }
             : undefined,
-        deityDbfId: numTag(gameEntity, 'BACON_GLOBAL_OLD_GOD_DBID'),
+        deityDbfId: deityOf(game, localId),
       },
     };
   },

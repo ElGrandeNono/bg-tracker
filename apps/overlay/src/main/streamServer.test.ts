@@ -26,6 +26,7 @@ async function payloadFromFixture(): Promise<OverlayPayload> {
       hsWindow: 'fullscreen',
       cardData: 'ok',
       replayDone: false,
+      stale: false,
     },
     settings: { ...DEFAULT_SETTINGS, locked: false },
     timerEndsAt: undefined,

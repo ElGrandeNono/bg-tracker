@@ -104,6 +104,7 @@ const frames: OverlayPayload[] = views.map((view) => ({
     hsWindow: 'ok',
     cardData: 'ok',
     replayDone: true,
+    stale: false,
   },
   settings: { ...DEFAULT_SETTINGS, backdrop: true },
   timerEndsAt: undefined,

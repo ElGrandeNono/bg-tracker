@@ -61,6 +61,7 @@ describe('alertes : déclenchement unique', () => {
         hsWindow: 'ok',
         cardData: 'ok',
         replayDone: false,
+        stale: false,
       },
       settings: {
         ...DEFAULT_SETTINGS,

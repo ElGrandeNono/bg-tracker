@@ -68,6 +68,11 @@ export interface OverlayStatus {
   readonly hsWindow: HsWindowState;
   readonly cardData: 'loading' | 'ok' | 'stale' | 'error';
   readonly replayDone: boolean;
+  /**
+   * Suivi en direct sans nouvelle ligne de log depuis 3 min alors que la partie semble en cours
+   * (abandon : le jeu n'écrit plus rien) : l'overlay revient à l'état d'attente.
+   */
+  readonly stale: boolean;
 }
 
 export interface PanelPosition {
