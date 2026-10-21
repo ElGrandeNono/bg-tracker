@@ -8,7 +8,7 @@ Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monore
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Installer                                    | `pnpm install`                                                                                          |
 | Build (tsc -b, références de projets)        | `pnpm build`                                                                                            |
-| Tests (Vitest)                               | `pnpm test` (`pnpm test:watch`, `pnpm coverage`)                                                        |
+| Tests (Vitest)                               | `pnpm test` (`pnpm test:watch`, `pnpm coverage`) ; `pnpm test:slow` ajoute les 9 parties (`BGT_SLOW=1`) |
 | Lint                                         | `pnpm lint`                                                                                             |
 | Format                                       | `pnpm format` / `pnpm format:check`                                                                     |
 | Compresser une fixture                       | `node scripts/gzip-fixture.mjs fixtures/<fichier>.log`                                                  |
@@ -91,7 +91,7 @@ Personnalisation (M7) : fenêtre Réglages `renderer/Settings.tsx` (route `#sett
 - Source retenue : `GameState.DebugPrintPower()`. `PowerTaskList.DebugPrintPower()` duplique les mêmes événements : ne jamais compter les deux.
 - PlayerID variables d'une partie à l'autre : jamais en dur. Joueur local = `GameAccountId` non nul.
 - Tags inconnus affichés en numérique (`tag=3085`) : garder le brut, jamais d'exception.
-- Place finale = dernière `PLAYER_LEADERBOARD_PLACE` du héros local à l'élimination. `PLAYSTATE=LOST` ne veut pas dire hors top 4.
+- Place finale = DERNIÈRE `PLAYER_LEADERBOARD_PLACE` du héros local, y compris APRÈS le `LOST` : le jeu reclasse les joueurs morts au même tour (fixture `bg-solo-3-parties` partie 2 : 6 au `LOST`, 4 une seconde plus tard). `PLAYSTATE=LOST` ne veut pas dire hors top 4 (2e avec `LOST`), et seuls les `PLAYSTATE` du joueur local comptent.
 - Tribus du lobby non annoncées : déduction progressive avec niveau de confiance. `CARDRACE` et `BACON_SUBSET_` lus tous les deux, normalisés (QUILBOAR→QUILLBOAR, MECHANICAL→MECH, ELEMENTAL→ELEMENTALS). Aberrations = type de serviteur, pas des anomalies.
 - Issues de partie : `finished`, `interrupted` (fin de flux sans fin de partie), `abandoned` (heuristique : fin de flux + dernier événement = place 8 du héros local ; la place 8 n'est jamais un classement). Exclure `abandoned`/`interrupted` des moyennes (M6).
 - **Fair-play temporel** : `GameState` connaît l'issue d'un combat 8 à 48 s avant l'animation. L'UI ne lit QUE `pipeline.displayed` (instantané libéré par les repères `PowerTaskList`, `power/markers.ts`) ; `pipeline.bg`/`state` servent à la chronologie et à l'historique. `PowerTaskList` = horloge uniquement, jamais de données.

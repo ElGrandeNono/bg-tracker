@@ -114,7 +114,9 @@ Après `BACON_CURRENT_COMBAT_PLAYER_ID`, le jeu crée par `FULL_ENTITY` les copi
 
 - Élimination du joueur local : son héros passe en `ZONE=GRAVEYARD` (gros `DAMAGE`), puis `PLAYSTATE=LOST` sur le joueur local et `PLAYSTATE=WON` sur le dummy (alors nommé comme l'adversaire du dernier combat).
 - **`PLAYSTATE=LOST` est reçu avec une 3e place** (F2) : il ne dit rien du top 4.
-- Place finale = dernière `PLAYER_LEADERBOARD_PLACE` du héros local à l'élimination. Elle varie souvent pendant la partie (5, 6, 5, 6 en quelques secondes) : jamais présentée comme finale avant l'élimination. F2 : 3, conforme à la réalité.
+- Place finale = DERNIÈRE `PLAYER_LEADERBOARD_PLACE` du héros local (entité en PLAY), y compris après l'élimination : le jeu reclasse les joueurs morts au même tour jusqu'à ~1 s après le `LOST` (`bg-solo-3-parties` partie 2 : 6 → 4 ; `bg-solo-4-parties` partie 1 : 5 → 6). Elle varie souvent pendant la partie (5, 6, 5, 6 en quelques secondes) : jamais présentée comme finale avant l'élimination. F2 : 3, conforme à la réalité. Vérifié sur les 9 parties du 21/10/2026 (`acceptance-9-parties.test.ts`, slow).
+- Fin de partie : `PLAYSTATE` du joueur local uniquement (`LOSING` puis `LOST`), même 2e (A3) ; un autre joueur peut passer `LOSING` puis revenir à `PLAYING` (A3, C1) et le `WON` du gagnant peut n'apparaître que côté PowerTaskList. Des événements continuent jusqu'à ~45 s après le `LOST` (B4).
+- Tribus du lobby : sur 10 parties complètes, les tribus hors lobby ne dépassent jamais 3 cartes distinctes (seuil d'identification : 5).
 - Le log continue ~40 s après la mort du héros et ne couvre pas la fin de partie des autres joueurs.
 
 ### Abandon

@@ -21,7 +21,8 @@
     "replay": "tsc -b && node packages/core/dist/cli/replay.js",
     "overlay": "pnpm --filter @bgt/overlay build && pnpm --filter @bgt/overlay start",
     "overlay:replay": "pnpm --filter @bgt/overlay build && pnpm --filter @bgt/overlay exec electron . --replay",
-    "overlay:demo": "pnpm --filter @bgt/overlay demo"
+    "overlay:demo": "pnpm --filter @bgt/overlay demo",
+    "test:slow": "node scripts/test-slow.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
