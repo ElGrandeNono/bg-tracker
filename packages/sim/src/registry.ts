@@ -15,6 +15,15 @@ export interface CardEffects {
   readonly note: string;
   /** Râle d'agonie : `position` = place qu'occupait le serviteur mort. */
   readonly deathrattle?: (ctx: CombatContext, side: Side, position: number, self: Minion) => void;
+  /**
+   * À la mort, hors Râle d'agonie (non doublé par Titus) : ex. compteur « mort pendant cette
+   * partie » du Chevalier éternel (mécanique `InvisibleDeathrattle`).
+   */
+  readonly onDeath?: (ctx: CombatContext, side: Side, self: Minion) => void;
+  /** Après le retour par Réincarnation (stats d'aura à réappliquer, par ex.). */
+  readonly onReborn?: (ctx: CombatContext, side: Side, self: Minion) => void;
+  /** Déclenchements de Râle d'agonie EN PLUS accordés à son camp tant qu'il est vivant (Titus). */
+  readonly extraDeathrattles?: (self: Minion) => number;
   /** Ralliement : « Chaque fois que ce serviteur attaque », avant les dégâts. */
   readonly onAttack?: (ctx: CombatContext, side: Side, self: Minion) => void;
   /** Après une attaque de ce serviteur qui a tué sa cible (`overkill` = dégâts en trop). */
@@ -39,6 +48,53 @@ export interface CardEffects {
 export type EffectRegistry = ReadonlyMap<string, CardEffects>;
 
 const MICROBOT = { cardId: 'BG_BOT_312t', tier: 1, tribes: ['MECH'] } as const;
+// Jetons vérifiés dans les logs de l'utilisateur (20 et 21/10/2026) et HearthstoneJSON.
+const SKELETON = {
+  cardId: 'BG_ICC_026t',
+  tier: 1,
+  tribes: ['UNDEAD'],
+  attack: 1,
+  health: 1,
+} as const;
+const BEETLE = { cardId: 'BG28_603t', tier: 1, tribes: ['BEAST'], attack: 2, health: 2 } as const;
+const HUNTING_BAT = {
+  cardId: 'BG36_200t',
+  tier: 1,
+  tribes: ['BEAST'],
+  attack: 1,
+  health: 1,
+} as const;
+
+const ETERNAL_KNIGHT = 'BG25_008';
+/**
+ * Chevaliers éternels alliés morts « pendant cette partie » : déduit au début du combat des
+ * chevaliers présents (ATQ − ATQ de base) ÷ 4 (÷ 8 doré), le plus petit écart (un chevalier a pu
+ * recevoir d'autres bonus) ; 0 sans chevalier. Puis tenu à jour pendant le combat.
+ */
+function knightDeaths(side: Side): number {
+  const known = side.counters.get(ETERNAL_KNIGHT);
+  if (known !== undefined) return known;
+  const counts = side.board
+    .filter((x) => x.cardId === ETERNAL_KNIGHT && !x.dead)
+    .map((x) => Math.floor((x.attack - (x.golden ? 8 : 4)) / (x.golden ? 8 : 4)));
+  const n = counts.length === 0 ? 0 : Math.max(0, Math.min(...counts));
+  side.counters.set(ETERNAL_KNIGHT, n);
+  return n;
+}
+
+function summonKnight(ctx: CombatContext, side: Side, position: number, golden: boolean): void {
+  const n = knightDeaths(side);
+  const step = golden ? 2 : 1;
+  ctx.summon(side, position, {
+    cardId: ETERNAL_KNIGHT,
+    attack: 4 * step * (1 + n),
+    health: 2 * step * (1 + n),
+    tier: 2,
+    golden,
+    tribes: ['UNDEAD'],
+    base: { attack: 4 * step, taunt: false, divineShield: false, venomous: false, windfury: false },
+  });
+}
 
 const none = (note: string): CardEffects => ({ note, noCombatEffect: true });
 const soc = (note: string): CardEffects => ({ note, startOfCombatOnly: true });
@@ -87,7 +143,77 @@ const ENTRIES: Record<string, CardEffects> = {
     },
   },
 
+  BG25_008: {
+    note:
+      'Chevalier éternel — « A +4/+2 pour chaque chevalier éternel allié mort pendant cette ' +
+      'partie » (doré +8/+4) : à sa mort, les chevaliers alliés vivants gagnent le bonus.',
+    onDeath: (_ctx, side, self) => {
+      side.counters.set(ETERNAL_KNIGHT, knightDeaths(side) + 1);
+      for (const k of side.alive()) {
+        if (k === self || k.cardId !== ETERNAL_KNIGHT) continue;
+        k.attack += k.golden ? 8 : 4;
+        k.health += k.golden ? 4 : 2;
+      }
+    },
+    // Revenu par Réincarnation (1 PV) : l'aura s'applique de nouveau (lecture du texte, non vérifié).
+    onReborn: (_ctx, side, self) => {
+      const n = knightDeaths(side);
+      const step = self.golden ? 2 : 1;
+      self.attack = 4 * step * (1 + n);
+      self.health = 1 + 2 * step * n;
+    },
+  },
+  BG25_009: {
+    note: 'Invocatrice éternelle — « Râle d’agonie : invoque un chevalier éternel » (doré : doré).',
+    deathrattle: (ctx, side, position, self) => {
+      summonKnight(ctx, side, position, self.golden);
+    },
+  },
+  BG25_354: {
+    note: 'Titus Vaillefendre — « Vos Râles d’agonie se déclenchent une fois supplémentaire » (doré : 2).',
+    extraDeathrattles: (self) => (self.golden ? 2 : 1),
+  },
+  BG28_309: {
+    note:
+      'Momification — « Râle d’agonie : confère Réincarnation à un autre Mort-vivant allié » ' +
+      '(doré : 2). Choix au hasard parmi ceux qui ne l’ont pas (non vérifié).',
+    deathrattle: (ctx, side, _position, self) => {
+      for (let n = self.golden ? 2 : 1; n > 0; n--) {
+        const c = side
+          .alive()
+          .filter((x) => x !== self && x.tribes.includes('UNDEAD') && !x.reborn);
+        if (c.length === 0) return;
+        ctx.rng.pick(c).reborn = true;
+      }
+    },
+  },
+  BG28_300: {
+    note: 'Liche inoffensive — « Râle d’agonie : invoque deux squelettes 1/1 » (doré : quatre 1/1).',
+    deathrattle: (ctx, side, position, self) => {
+      for (let n = self.golden ? 4 : 2; n > 0; n--) ctx.summon(side, position, { ...SKELETON });
+    },
+  },
+  BG31_803: {
+    note: 'Insecte vrombissant — « Râle d’agonie : invoque un hanneton 2/2 » (doré : deux 2/2).',
+    deathrattle: (ctx, side, position, self) => {
+      for (let n = self.golden ? 2 : 1; n > 0; n--) ctx.summon(side, position, { ...BEETLE });
+    },
+  },
+  BG36_200: {
+    note:
+      'Chauve-souris virevoltante — « Ralliement : invoque une Bête 1/1 » (doré : deux), ' +
+      'à sa droite (position non vérifiée).',
+    onAttack: (ctx, side, self) => {
+      for (let n = self.golden ? 2 : 1; n > 0; n--) {
+        ctx.summon(side, side.board.indexOf(self) + 1, { ...HUNTING_BAT });
+      }
+    },
+  },
+
   // ---- Râles d'agonie sans effet sur le combat (cartes en main, taverne, Divinité hors combat)
+  BG36_362: none('Garde-courroux sacrificiel — Râle d’agonie : +2/+2 à la taverne (partie).'),
+  BG36_730: none('Sonneur piégé — Râle d’agonie : cartes Chair à démon aux actualisations.'),
+  BG36_731: none('Diablonnettiste — Râle d’agonie : obtenez une Folie méthodique (main).'),
   BG32_336: none('Gourmet gormelin — Râle d’agonie : obtenez un ragoût de la mer (en main).'),
   BG34_171: none('Assemblage porteur — Râle d’agonie : obtenez un volumateur (en main).'),
   BG34_856: none('Être aqueux — Râle d’agonie : +4/+4 à un serviteur de la taverne.'),

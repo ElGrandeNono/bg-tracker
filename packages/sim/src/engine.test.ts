@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { simulateCombat } from './engine.js';
+import { CombatContext, resolveDeaths, Side, simulateCombat } from './engine.js';
 import { simulate } from './monteCarlo.js';
 import { DEFAULT_REGISTRY, effectStatus } from './registry.js';
 import { Rng } from './rng.js';
@@ -275,5 +275,78 @@ describe('Monte Carlo', () => {
     console.log(`10 000 combats 7v7 : ${Math.round(ms)} ms`);
     // Marge pour les machines de CI ; l'objectif produit est < 1 s.
     expect(ms).toBeLessThan(3000);
+  });
+});
+
+describe('Morts-vivants et invocations (textes HearthstoneJSON frFR, build 254477)', () => {
+  // Plateaux posés à la main puis morts résolues : effets testés sans dépendre du tirage.
+  const setup = (a: SimMinionInput[], b: SimMinionInput[] = [m(1, 1)]) => {
+    const sa = new Side(0, { minions: a, tavernTier: 1 });
+    const sb = new Side(1, { minions: b, tavernTier: 1 });
+    const ctx = new CombatContext([sa, sb], new Rng(7), DEFAULT_REGISTRY);
+    return { sa, ctx };
+  };
+  const kill = (ctx: CombatContext, side: Side, index: number): void => {
+    const x = side.board[index];
+    if (x !== undefined) x.health = 0;
+    resolveDeaths(ctx, side);
+  };
+  const ids = (s: Side): string[] => s.alive().map((x) => x.cardId);
+
+  it('Liche inoffensive : deux squelettes 1/1, quatre si dorée', () => {
+    const { sa, ctx } = setup([m(1, 1, { cardId: 'BG28_300' })]);
+    kill(ctx, sa, 0);
+    expect(ids(sa)).toEqual(['BG_ICC_026t', 'BG_ICC_026t']);
+    const g = setup([m(2, 2, { cardId: 'BG28_300', golden: true })]);
+    kill(g.ctx, g.sa, 0);
+    expect(ids(g.sa)).toHaveLength(4);
+  });
+
+  it('Titus Vaillefendre : les Râles d’agonie se déclenchent une fois de plus (doré : deux)', () => {
+    const { sa, ctx } = setup([m(1, 1, { cardId: 'BG28_300' }), m(1, 7, { cardId: 'BG25_354' })]);
+    kill(ctx, sa, 0);
+    expect(ids(sa).filter((x) => x === 'BG_ICC_026t')).toHaveLength(4);
+    const g = setup([
+      m(1, 1, { cardId: 'BG31_803' }),
+      m(2, 14, { cardId: 'BG25_354', golden: true }),
+    ]);
+    kill(g.ctx, g.sa, 0);
+    expect(ids(g.sa).filter((x) => x === 'BG28_603t')).toHaveLength(3);
+  });
+
+  it('Chevalier éternel : chaque chevalier mort renforce les autres (+4/+2, doré +8/+4)', () => {
+    // 4/2 et 8/4 de base, aucun mort avant le combat.
+    const { sa, ctx } = setup([
+      m(4, 2, { cardId: 'BG25_008', tribes: ['UNDEAD'] }),
+      m(8, 4, { cardId: 'BG25_008', golden: true, tribes: ['UNDEAD'] }),
+    ]);
+    kill(ctx, sa, 0);
+    expect(sa.alive()[0]).toMatchObject({ attack: 16, health: 8 });
+  });
+
+  it('Invocatrice éternelle : le chevalier invoqué porte les morts de la partie', () => {
+    // Un chevalier 12/6 sur le plateau = 2 chevaliers morts avant le combat.
+    const { sa, ctx } = setup([
+      m(8, 1, { cardId: 'BG25_009', tribes: ['UNDEAD'] }),
+      m(12, 6, { cardId: 'BG25_008', tribes: ['UNDEAD'] }),
+    ]);
+    kill(ctx, sa, 0);
+    expect(sa.alive()[0]).toMatchObject({ cardId: 'BG25_008', attack: 12, health: 6 });
+  });
+
+  it('Momification : confère Réincarnation à un autre Mort-vivant (pas à un non Mort-vivant)', () => {
+    const { sa, ctx } = setup([
+      m(5, 2, { cardId: 'BG28_309', tribes: ['UNDEAD'] }),
+      m(1, 1, { tribes: ['BEAST'] }),
+      m(1, 1, { tribes: ['UNDEAD'] }),
+    ]);
+    kill(ctx, sa, 0);
+    expect(sa.alive().map((x) => x.reborn)).toEqual([false, true]);
+  });
+
+  it('cartes à effet hors combat : plus signalées comme non simulées', () => {
+    for (const id of ['BG36_362', 'BG36_730', 'BG36_731']) {
+      expect(effectStatus(id, ['DEATHRATTLE'])).toBe('supported');
+    }
   });
 });

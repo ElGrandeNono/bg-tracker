@@ -42,6 +42,17 @@ Le résultat est marqué **« approximatif »** dès qu'un serviteur des deux pl
 | 12     | aucun dégât subi | victoire 100 %, **approximatif** (Redresseuse de torts cramoisie)   |
 | 14     | mort             | défaite 67 %                                                        |
 
+### Mesure sur les parties de l'utilisateur (`scripts/sim-eval.mjs`)
+
+`node scripts/sim-eval.mjs --verbose <logs…>` rejoue des logs, construit l'entrée comme l'overlay et compare la prédiction à l'issue réelle (PV + armure des deux héros avant / après). Les combats contre un adversaire déjà éliminé (fantôme) sont écartés. Mesure du 21/10/2026 sur 101 combats (fixtures + logs locaux de l'utilisateur, lus sans copie) :
+
+| Version                                  | Issue la plus probable = réelle | Brier | Combats sans carte non simulée |
+| ---------------------------------------- | ------------------------------- | ----- | ------------------------------ |
+| avant (registre initial)                 | 79 %                            | 0,334 | 29 (dont 26 justes)            |
+| après (Morts-vivants, invocations, etc.) | 79 %                            | 0,309 | 39 (dont 32 justes)            |
+
+Erreurs restantes les plus fréquentes : gemmes de sang des Huranes (Longues-défenses prodigieux, Campeuse à défenses : valeur de gemme à vérifier dans un log), Implorateur de l'enfer dévot, Perroquet au trésor. Aucune Divinité réveillée en combat dans ces logs : C'Thun / Y'Shaarj restent non simulés faute d'observation.
+
 Le combat 4 a révélé une erreur corrigée : une Réincarnation copiait l'état courant au lieu de la carte d'origine (le Bouclier divin du Gardien de bronze n'était pas rendu). Avant correction, la défaite réelle n'y était jugée possible qu'à 4 %.
 
 ## Cartes du registre (`packages/sim/src/registry.ts`)
@@ -56,10 +67,17 @@ Les versions dorées utilisent la même entrée (l'overlay ramène un doré à s
 | `BG29_888` Gardien de la lueur          | Ralliement : +2 ATQ (doré : +4)                                                                                         |
 | `BG33_318` Crache-bile                  | Ralliement : Venimosité à un autre Murloc allié (doré : 2) — choix parmi ceux qui ne l'ont pas : non vérifié            |
 | `BGS_126` Élémentaire du feu de brousse | après un kill, surplus de dégâts à un adversaire adjacent (au hasard) ; doré sans texte dans les données : approximatif |
+| `BG25_008` Chevalier éternel            | à sa mort, +4/+2 (doré +8/+4) aux chevaliers alliés ; morts de la partie déduits des stats au début du combat           |
+| `BG25_009` Invocatrice éternelle        | Râle d'agonie : invoque un chevalier éternel (doré : doré) avec le bonus des morts                                      |
+| `BG25_354` Titus Vaillefendre           | les Râles d'agonie du camp se déclenchent une fois de plus (doré : deux) ; pas le compteur du Chevalier éternel         |
+| `BG28_309` Momification                 | Râle d'agonie : Réincarnation à un autre Mort-vivant (doré : 2) — choix parmi ceux qui ne l'ont pas : non vérifié       |
+| `BG28_300` Liche inoffensive            | Râle d'agonie : deux squelettes 1/1 `BG_ICC_026t` (doré : quatre)                                                       |
+| `BG31_803` Insecte vrombissant          | Râle d'agonie : un hanneton 2/2 `BG28_603t` (doré : deux)                                                               |
+| `BG36_200` Chauve-souris virevoltante   | Ralliement : une Bête 1/1 `BG36_200t` (doré : deux), à sa droite (position non vérifiée)                                |
 
 **Début du combat** (exact sur un plateau figé, approximatif sur ton plateau de recrutement) : `BG32_330` Éclaireur véloce, `BG27_556` Fourrageur boueux, `BG34_142` Victime de la mode, `BG24_500` Veilleur d'ambre, `BG36_245` Arcaniste runique, `BG26_963` Synthé électrique.
 
-**Sans effet en combat** (Râles d'agonie qui donnent des cartes ou agissent sur la taverne ; déclencheurs de recrutement, de main, de fin de tour ou d'après-combat ; auras déjà comptées) : `BG32_336`, `BG34_171`, `BG34_856`, `BG35_881`, `BG32_170`, `BG36_113`, `BG36_703`, `BG36_704`, `BG29_300`, `BG35_814`, `TB_Baconups_202`, `BGS_127`, `BG26_147`, `BG26_524`, `BG26_ICC_901`, `BG36_367`, `BG34_Giant_120`, `BG21_015`, `BGS_004`, `BG26_174`, `BG32_873`, `BG26_523`, `BG36_360t6`, `BG_LOE_077`, `BG29_813`, `BG34_Giant_314`, `BG36_242`, `BG33_924`.
+**Sans effet en combat** (Râles d'agonie qui donnent des cartes ou agissent sur la taverne ; déclencheurs de recrutement, de main, de fin de tour ou d'après-combat ; auras déjà comptées) : `BG32_336`, `BG34_171`, `BG34_856`, `BG35_881`, `BG32_170`, `BG36_113`, `BG36_703`, `BG36_704`, `BG29_300`, `BG35_814`, `TB_Baconups_202`, `BGS_127`, `BG26_147`, `BG26_524`, `BG26_ICC_901`, `BG36_367`, `BG34_Giant_120`, `BG21_015`, `BGS_004`, `BG26_174`, `BG32_873`, `BG26_523`, `BG36_360t6`, `BG_LOE_077`, `BG29_813`, `BG34_Giant_314`, `BG36_242`, `BG33_924`, `BG36_362`, `BG36_730`, `BG36_731`.
 
 Les cartes sans aucune mécanique de combat dans HearthstoneJSON (Activations, effets de vente…) sont simulées exactement par leurs seuls mots-clés.
 
@@ -67,7 +85,7 @@ Les cartes sans aucune mécanique de combat dans HearthstoneJSON (Activations, e
 
 Toute carte dont les `mechanics` HearthstoneJSON contiennent `DEATHRATTLE`, `InvisibleDeathrattle`, `START_OF_COMBAT`, `AVENGE`, `AURA`, `TRIGGER_VISUAL` ou `BACON_RALLY` et qui n'est pas dans le registre. `TRIGGER_VISUAL` couvre aussi des déclencheurs de recrutement : le marquage est volontairement prudent. Les effets de héros, de trinkets et de Divinités (C'Thun) en combat ne sont pas simulés.
 
-Restent non simulés sur les plateaux des fixtures : Redresseuse de torts cramoisie (Ralliement : Souffle de dragon puissant), Campeuse à défenses (gemme de sang : valeur dépendante de compteurs non observés), Chevalier éternel (aura qui grandit avec les morts de chevaliers).
+Restent non simulés sur les plateaux des fixtures : Redresseuse de torts cramoisie (Ralliement : Souffle de dragon puissant), Campeuse à défenses (gemme de sang : valeur dépendante de compteurs non observés).
 
 ## Ajouter une carte
 

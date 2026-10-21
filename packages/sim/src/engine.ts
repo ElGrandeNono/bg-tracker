@@ -65,6 +65,8 @@ export class Side {
   board: Minion[];
   /** Index du prochain attaquant. */
   next = 0;
+  /** Compteurs propres à ce camp, tenus par les effets du registre (ex. chevaliers éternels morts). */
+  readonly counters = new Map<string, number>();
 
   constructor(
     readonly index: 0 | 1,
@@ -137,8 +139,15 @@ function nextAttacker(side: Side): Minion | undefined {
   return undefined;
 }
 
+/** Déclenchements supplémentaires de Râle d'agonie (somme des effets `extraDeathrattles` vivants). */
+function extraDeathrattles(ctx: CombatContext, side: Side): number {
+  let n = 0;
+  for (const x of side.alive()) n += ctx.registry.get(x.cardId)?.extraDeathrattles?.(x) ?? 0;
+  return n;
+}
+
 /** Retire les morts, déclenche Râles d'agonie et Réincarnations ; recommence tant qu'il y en a. */
-function resolveDeaths(ctx: CombatContext, attackerSide: Side): void {
+export function resolveDeaths(ctx: CombatContext, attackerSide: Side): void {
   for (let guard = 0; guard < 50; guard++) {
     const order = [attackerSide, ctx.sides[1 - attackerSide.index] as Side];
     let any = false;
@@ -153,11 +162,17 @@ function resolveDeaths(ctx: CombatContext, attackerSide: Side): void {
         side.board.splice(i, 1);
         if (i < side.next) side.next--;
         i--;
-        ctx.registry.get(m.cardId)?.deathrattle?.(ctx, side, position, m);
+        const effects = ctx.registry.get(m.cardId);
+        effects?.onDeath?.(ctx, side, m);
+        if (effects?.deathrattle !== undefined) {
+          // Titus Vaillefendre : les Râles d'agonie du camp se déclenchent en plus.
+          const times = 1 + extraDeathrattles(ctx, side);
+          for (let t = 0; t < times; t++) effects.deathrattle(ctx, side, position, m);
+        }
         if (m.reborn) {
           // Revient comme la carte d'origine, avec 1 PV et sans Réincarnation.
           const b = m.base;
-          ctx.summon(side, position, {
+          const back = ctx.summon(side, position, {
             cardId: m.cardId,
             attack: b?.attack ?? m.attack,
             health: 1,
@@ -170,6 +185,7 @@ function resolveDeaths(ctx: CombatContext, attackerSide: Side): void {
             tribes: m.tribes,
             base: b,
           });
+          if (back !== undefined) effects?.onReborn?.(ctx, side, back);
         }
       }
     }
