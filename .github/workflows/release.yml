@@ -62,5 +62,6 @@ jobs:
           name: bg-tracker-windows
           path: |
             apps/overlay/release/out/*.exe
+            apps/overlay/release/out/*.zip
             apps/overlay/release/out/latest.yml
           if-no-files-found: error

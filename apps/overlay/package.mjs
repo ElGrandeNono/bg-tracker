@@ -113,7 +113,12 @@ writeFileSync(
 // ------------------------------------------------------------- electron-builder
 const args = process.argv.slice(2);
 await build({
-  targets: Platform.WINDOWS.createTarget(args.includes('--dir') ? 'dir' : 'nsis', Arch.x64),
+  // Installeur NSIS + archive ZIP portable (sans installeur, pour les antivirus qui bloquent ce
+  // dernier ; pas de mise à jour automatique dans ce cas).
+  targets: Platform.WINDOWS.createTarget(
+    args.includes('--dir') ? ['dir'] : ['nsis', 'zip'],
+    Arch.x64,
+  ),
   publish: args.includes('--publish') ? 'always' : 'never',
   config: {
     appId: 'io.github.elgrandenono.bgtracker',
@@ -131,6 +136,8 @@ await build({
     nodeGypRebuild: false,
     win: { icon: join(resources, 'icon.png') },
     nsis: {
+      // Vérification de l'appli ouverte sans PowerShell (voir installer.nsh).
+      include: join(here, 'installer.nsh'),
       oneClick: false,
       perMachine: false,
       allowToChangeInstallationDirectory: true,
