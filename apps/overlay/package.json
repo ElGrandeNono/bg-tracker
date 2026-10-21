@@ -1,6 +1,6 @@
 {
   "name": "@bgt/overlay",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "private": true,
   "license": "MIT",
   "description": "Overlay en jeu de BG Tracker (Electron). Non affilié à Blizzard Entertainment.",
