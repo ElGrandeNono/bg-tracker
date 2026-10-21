@@ -75,6 +75,8 @@ Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fi
 
 **Mode streamer** (Réglages › Mode streamer, désactivé par défaut) : un petit serveur local sert l'overlay à OBS. Ajoutez une « source navigateur » d'URL `http://127.0.0.1:5280/?obs` (port réglable), à la taille de votre capture du jeu. Le serveur n'écoute que sur `127.0.0.1` (jamais sur le réseau) ; options : masquer les pseudos adverses (activé par défaut), la simulation de combat, le pool. Les spectateurs voient exactement ce que vous voyez, jamais plus.
 
+**Stats externes (HSReplay)** (Réglages › Stats externes) : ouvrez sur hsreplay.net la page Battlegrounds Heroes, Duos Heroes ou Trinkets (en anglais), sélectionnez toute la page (Ctrl+A), copiez (Ctrl+C) puis cliquez « Actualiser depuis le presse-papiers ». Au choix du héros ou d'un bibelot, un panneau affiche pour chaque option le taux de choix et, quand la page la fournit, la place moyenne (survol : répartition des places). BG Tracker ne contacte jamais HSReplay : ces stats, propriété du site, restent dans le dossier de l'application sur votre ordinateur. Sans abonnement Tier7, la page des héros ne donne que le taux de choix.
+
 **Réseau** :
 
 - Données de cartes et illustrations des icônes de tribus : téléchargées depuis HearthstoneJSON (mises en cache localement, jamais incluses dans l'installeur). Seul accès indispensable ; aucune donnée personnelle n'est envoyée.

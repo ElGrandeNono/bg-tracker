@@ -74,6 +74,7 @@ export function sanitizeSettings(raw: unknown): OverlaySettings {
       players: sanitizePanel(panels.players, d.panels.players),
       sim: sanitizePanel(panels.sim, d.panels.sim),
       counters: sanitizePanel(panels.counters, d.panels.counters),
+      choice: sanitizePanel(panels.choice, d.panels.choice),
     },
     backdrop: false,
   };

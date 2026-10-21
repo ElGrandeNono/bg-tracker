@@ -111,6 +111,8 @@ const frames: OverlayPayload[] = views.map((view) => ({
   pool: catalog.length === 0 ? undefined : poolPayload(view, catalog, S14_POOL_RULES),
   combatSim: demoSim(view),
   manualTribes: undefined,
+  choiceStats: undefined,
+  externalStats: { 'heroes-solo': undefined, 'heroes-duos': undefined, trinkets: undefined },
   appVersion: 'démo',
   updateStatus: { state: 'idle' },
   deityCardId: (() => {

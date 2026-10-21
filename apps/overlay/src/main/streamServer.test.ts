@@ -35,6 +35,8 @@ async function payloadFromFixture(): Promise<OverlayPayload> {
     tavernBuffs: [],
     manualTribes: undefined,
     deityCardId: undefined,
+    choiceStats: undefined,
+    externalStats: { 'heroes-solo': undefined, 'heroes-duos': undefined, trinkets: undefined },
     appVersion: '0.0.0',
     updateStatus: { state: 'idle' },
   };

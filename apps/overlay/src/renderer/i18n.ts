@@ -129,6 +129,14 @@ const fr = {
     dashboard: 'Historique et statistiques (Ctrl+Maj+D)',
     settings: 'Réglages (Ctrl+Maj+P)',
   },
+  choice: {
+    heroes: 'Héros proposés · stats HSReplay',
+    trinkets: 'Bibelots proposés · stats HSReplay',
+    pick: 'choisi',
+    avg: 'place moy.',
+    none: 'pas de stats',
+    distribution: (d: string) => `Places 1 à 8 : ${d}`,
+  },
   counters: {
     freeRefresh: (n: number) => `Rafraîchissements gratuits : ${n}`,
     bloodGem: (a: number, h: number) => `Gemmes de sang : bonus +${a}/+${h}`,
@@ -287,6 +295,7 @@ const fr = {
       simulation: 'Simulation de combat',
       opponentBoard: 'Plateau du prochain adversaire',
       counters: 'Compteurs près du pouvoir héroïque',
+      choiceStats: 'Stats des héros et bibelots proposés',
     },
     alerts: 'Alertes',
     alertNames: {
@@ -304,6 +313,24 @@ const fr = {
     hideOpponentNames: 'Masquer les pseudos adverses',
     hideSimulation: 'Masquer la simulation',
     hidePool: 'Masquer le pool',
+    externalStats: 'Stats externes (HSReplay)',
+    externalStatsHelp:
+      'Sur HSReplay (page Héros, Héros Duos ou Bibelots), sélectionnez toute la page (Ctrl+A), copiez (Ctrl+C), puis cliquez ci-dessous. BG Tracker ne contacte jamais le site ; les stats restent sur cet ordinateur.',
+    pasteStats: 'Actualiser depuis le presse-papiers',
+    statsPages: {
+      'heroes-solo': 'Héros (solo)',
+      'heroes-duos': 'Héros (duos)',
+      trinkets: 'Bibelots',
+    },
+    statsNone: 'pas encore importé',
+    statsLine: (count: number, date: string) => `${count} cartes · copié le ${date}`,
+    statsResult: (page: string, n: number, missing: number) =>
+      `${page} : ${n} cartes mises à jour${missing > 0 ? ` (${missing} noms non reconnus)` : ''}.`,
+    statsUnrecognized:
+      'Le presse-papiers ne contient pas une page HSReplay reconnue (Héros, Héros Duos ou Bibelots).',
+    statsNoCards: 'Aucune carte reconnue (données de cartes indisponibles ?).',
+    heroAvgLocked:
+      'HSReplay ne montre la place moyenne des héros qu’aux abonnés Tier7 : seul le taux de choix est alors importé.',
     updates: 'Mises à jour',
     autoUpdate: 'Vérifier les mises à jour sur GitHub au démarrage (accès réseau)',
     installedVersion: 'Version installée :',
@@ -457,6 +484,14 @@ const en: Messages = {
     browser: 'Minions, pool and odds (Ctrl+Shift+B)',
     dashboard: 'History and statistics (Ctrl+Shift+D)',
     settings: 'Settings (Ctrl+Shift+P)',
+  },
+  choice: {
+    heroes: 'Offered heroes · HSReplay stats',
+    trinkets: 'Offered trinkets · HSReplay stats',
+    pick: 'picked',
+    avg: 'avg place',
+    none: 'no stats',
+    distribution: (d) => `Places 1 to 8: ${d}`,
   },
   counters: {
     freeRefresh: (n) => `Free refreshes: ${n}`,
@@ -612,6 +647,7 @@ const en: Messages = {
       simulation: 'Combat simulation',
       opponentBoard: 'Next opponent board',
       counters: 'Counters next to the hero power',
+      choiceStats: 'Stats of offered heroes and trinkets',
     },
     alerts: 'Alerts',
     alertNames: {
@@ -629,6 +665,24 @@ const en: Messages = {
     hideOpponentNames: 'Hide opponent names',
     hideSimulation: 'Hide simulation',
     hidePool: 'Hide pool',
+    externalStats: 'External stats (HSReplay)',
+    externalStatsHelp:
+      'On HSReplay (Heroes, Duos Heroes or Trinkets page), select the whole page (Ctrl+A), copy (Ctrl+C), then click below. BG Tracker never contacts the site; the stats stay on this computer.',
+    pasteStats: 'Refresh from clipboard',
+    statsPages: {
+      'heroes-solo': 'Heroes (solo)',
+      'heroes-duos': 'Heroes (duos)',
+      trinkets: 'Trinkets',
+    },
+    statsNone: 'not imported yet',
+    statsLine: (count, date) => `${count} cards · copied on ${date}`,
+    statsResult: (page, n, missing) =>
+      `${page}: ${n} cards updated${missing > 0 ? ` (${missing} names not recognized)` : ''}.`,
+    statsUnrecognized:
+      'The clipboard does not contain a known HSReplay page (Heroes, Duos Heroes or Trinkets).',
+    statsNoCards: 'No card recognized (card data unavailable?).',
+    heroAvgLocked:
+      'HSReplay only shows heroes’ average placement to Tier7 subscribers: only the pick rate is then imported.',
     updates: 'Updates',
     autoUpdate: 'Check for updates on GitHub at startup (network access)',
     installedVersion: 'Installed version:',

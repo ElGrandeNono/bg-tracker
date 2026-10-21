@@ -35,6 +35,8 @@ export function streamBridge(): BgtBridge {
     setInteractive: none,
     setLobbyTribes: none,
     checkUpdates: none,
+    importStatsFromClipboard: () =>
+      Promise.resolve({ page: undefined, matched: 0, unmatched: [], error: 'unrecognized' }),
     onTribeArt: () => none,
     history: {
       list: () => Promise.resolve({ games: [], names: {} }),

@@ -18,6 +18,7 @@ export const CHANNELS = {
   setInteractive: 'bgt:set-interactive',
   setLobbyTribes: 'bgt:set-lobby-tribes',
   checkUpdates: 'bgt:check-updates',
+  importStats: 'bgt:import-stats',
   tribeArt: 'bgt:tribe-art',
   historyList: 'bgt:history-list',
   historyGet: 'bgt:history-get',
@@ -82,7 +83,7 @@ export interface PanelPosition {
   readonly y: number;
 }
 
-export type PanelId = 'status' | 'players' | 'sim' | 'counters';
+export type PanelId = 'status' | 'players' | 'sim' | 'counters' | 'choice';
 
 export type Theme = 'dark' | 'light' | 'contrast';
 export type Language = 'fr' | 'en';
@@ -99,6 +100,8 @@ export interface SectionVisibility {
   readonly opponentBoard: boolean;
   /** Rafraîchissements gratuits, gemmes de sang, sorts et serviteurs de la taverne. */
   readonly counters: boolean;
+  /** Stats des héros / bibelots proposés (stats externes collées par le joueur). */
+  readonly choiceStats: boolean;
 }
 
 export interface AlertSettings {
@@ -167,6 +170,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
     simulation: true,
     opponentBoard: true,
     counters: true,
+    choiceStats: true,
   },
   alerts: { sound: false, turnStart: false, timerLow: true, triple: true, tribesFound: false },
   streamer: {
@@ -188,6 +192,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
     players: { x: 0.004, y: 0.1 },
     sim: { x: 0.4, y: 0.008 },
     counters: { x: 0.63, y: 0.8 },
+    choice: { x: 0.33, y: 0.7 },
   },
   backdrop: false,
 };
@@ -213,10 +218,44 @@ export interface OverlayPayload {
   readonly manualTribes: readonly string[] | undefined;
   /** Divinité de la partie (cardId HearthstoneJSON), si connue. */
   readonly deityCardId: string | undefined;
+  /** Stats des options du choix en cours (héros, bibelots), d'après les stats externes. */
+  readonly choiceStats: ChoiceStatsPayload | undefined;
+  /** Stats externes enregistrées (Réglages › Stats externes). */
+  readonly externalStats: ExternalStatsSummary;
   /** Version de l'application installée (package.json). */
   readonly appVersion: string;
   /** Dernière vérification des mises à jour (Réglages › Mises à jour). */
   readonly updateStatus: UpdateStatus;
+}
+
+/** Stats d'une option (copie HSReplay) : taux de choix, place moyenne si fournie, répartition. */
+export interface OptionStats {
+  readonly pickRate: number;
+  readonly avgPlacement: number | undefined;
+  readonly distribution: readonly number[] | undefined;
+  /** Moyenne de N variantes de tribu (bibelot dont la tribu est tirée en partie) ; sinon absent. */
+  readonly variants: number | undefined;
+}
+
+export interface ChoiceStatsPayload {
+  readonly kind: 'hero' | 'trinket';
+  /** Dans l'ordre affiché par le jeu (gauche → droite). */
+  readonly options: readonly { readonly cardId: string; readonly stats: OptionStats | undefined }[];
+}
+
+export type ExternalStatsSummary = Readonly<
+  Record<
+    'heroes-solo' | 'heroes-duos' | 'trinkets',
+    { readonly updatedAt: string; readonly count: number } | undefined
+  >
+>;
+
+export interface ImportStatsResult {
+  readonly page: 'heroes-solo' | 'heroes-duos' | 'trinkets' | undefined;
+  readonly matched: number;
+  readonly unmatched: readonly string[];
+  /** `unrecognized` : le presse-papiers ne contient pas une page HSReplay connue. */
+  readonly error: 'unrecognized' | 'noCards' | undefined;
 }
 
 export type UpdateStatus =
@@ -304,6 +343,8 @@ export interface BgtBridge {
   setLobbyTribes(gameIndex: number, tribes: readonly string[]): void;
   /** Vérifie maintenant les mises à jour (bouton des Réglages ; accès réseau à GitHub). */
   checkUpdates(): void;
+  /** Lit une page HSReplay copiée par le joueur (presse-papiers) et enregistre ses stats. */
+  importStatsFromClipboard(): Promise<ImportStatsResult>;
   /**
    * Images (data URL, HearthstoneJSON, en cache local) : clé = tribe (serviteur représentatif)
    * ou `card:<cardId>` (divinité).

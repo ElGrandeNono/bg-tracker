@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util';
 import {
   app,
   BrowserWindow,
+  clipboard,
   globalShortcut,
   ipcMain,
   Menu,
@@ -29,6 +30,8 @@ import {
   CHANNELS,
   type SettingsPatch,
   type UpdateStatus,
+  type ChoiceStatsPayload,
+  type ImportStatsResult,
   type HsWindowState,
   type OverlayPayload,
   type OverlaySettings,
@@ -43,6 +46,15 @@ import { buildSimRequest, type SimRequest } from './combatSim.js';
 import { tavernBuffs, type BaseCard } from './tavernBuffs.js';
 import { cardArt, loadTribeArt } from './tribeArt.js';
 import { ScreenTribeReader } from './screenTribes.js';
+import {
+  loadStoredStats,
+  matchRows,
+  parseStatsCopy,
+  saveStoredStats,
+  statsFor,
+  summarize,
+  type StoredStats,
+} from './externalStats.js';
 import { HistoryService } from './history.js';
 import { SimulationPool } from '@bgt/sim';
 import { HsWindowTracker, type HsWindowSample } from './hsWindow.js';
@@ -229,6 +241,26 @@ let cardDbKey: string | undefined;
 let timerEndsAt: number | undefined;
 let lastRecruitCount = 0;
 let smokeScheduled = false;
+/** Stats externes collées par le joueur (HSReplay), dans le dossier de l'application. */
+let externalStats: StoredStats = { pages: {} };
+const statsFile = (): string => join(app.getPath('userData'), 'external-stats.json');
+
+/** Stats des options proposées (héros : version de base des skins, selon le mode). */
+function choiceStatsFor(view: VisibleView): ChoiceStatsPayload | undefined {
+  const c = view.choice;
+  if (c === undefined || c.kind === 'other') return undefined;
+  const page =
+    c.kind === 'trinket' ? 'trinkets' : view.mode === 'duos' ? 'heroes-duos' : 'heroes-solo';
+  const cards = externalStats.pages[page]?.cards ?? {};
+  return {
+    kind: c.kind,
+    options: c.cardIds.map((id) => {
+      const base = c.kind === 'hero' ? (cardDb?.baseHero(id)?.id ?? id) : id;
+      return { cardId: id, stats: statsFor(cards, base, view.tribes.identified) };
+    }),
+  };
+}
+
 /** Dernière vérification des mises à jour (affichée dans les Réglages). */
 let updateStatus: UpdateStatus = { state: 'idle' };
 
@@ -357,6 +389,7 @@ function push(): void {
     names: {
       ...namesFor(view),
       ...(deityCardId === undefined ? {} : { [deityCardId]: cardDb?.name(deityCardId) ?? '' }),
+      ...Object.fromEntries((view.choice?.cardIds ?? []).map((id) => [id, cardDb?.name(id) ?? id])),
     },
     status: {
       ...status,
@@ -371,6 +404,8 @@ function push(): void {
     combatSim: updateSimulation(buildSimRequest(view, cardDb)),
     tavernBuffs: tavernBuffs(view.shop, baseCard),
     manualTribes: manual,
+    choiceStats: choiceStatsFor(view),
+    externalStats: summarize(externalStats),
     appVersion: app.getVersion(),
     updateStatus,
     deityCardId,
@@ -776,6 +811,33 @@ ipcMain.on(CHANNELS.setLobbyTribes, (_e, gameIndex: unknown, tribes: unknown) =>
   schedulePush();
 });
 // Bouton « Vérifier maintenant » : action explicite de l'utilisateur, même case décochée.
+// Stats externes : page HSReplay copiée par le joueur, lue dans le presse-papiers (aucun accès au
+// site). Les noms (anglais) sont rattachés aux cartes avec les données HearthstoneJSON enUS.
+ipcMain.handle(CHANNELS.importStats, async (): Promise<ImportStatsResult> => {
+  const parsed = parseStatsCopy(await clipboard.readText());
+  if (parsed === undefined || parsed.rows.length === 0) {
+    return { page: undefined, matched: 0, unmatched: [], error: 'unrecognized' };
+  }
+  const en = await loadCardDb({
+    build: cardDbKey?.split('/')[0] ?? 'latest',
+    locale: 'enUS',
+    cacheDir: join(app.getPath('userData'), 'cards'),
+  }).catch(() => undefined);
+  if (en === undefined) return { page: parsed.page, matched: 0, unmatched: [], error: 'noCards' };
+  const { cards, unmatched } = matchRows(parsed, en.db);
+  const matched = Object.keys(cards).length;
+  if (matched > 0) {
+    externalStats = {
+      pages: {
+        ...externalStats.pages,
+        [parsed.page]: { updatedAt: new Date().toISOString(), cards },
+      },
+    };
+    await saveStoredStats(statsFile(), externalStats);
+    schedulePush();
+  }
+  return { page: parsed.page, matched, unmatched, error: matched === 0 ? 'noCards' : undefined };
+});
 ipcMain.on(CHANNELS.checkUpdates, () => {
   runUpdateCheck();
 });
@@ -848,6 +910,7 @@ void app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => {
     cb(false);
   });
+  externalStats = await loadStoredStats(statsFile());
   history = new HistoryService(
     app.getPath('userData'),
     () => cardDb,

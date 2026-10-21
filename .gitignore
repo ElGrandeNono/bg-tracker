@@ -24,3 +24,6 @@ apps/overlay/src/renderer/public/
 
 # Fichiers déposés par l'utilisateur (originaux) : seules les copies renommées .gz sont versionnées
 fixtures/Power.*
+
+# Stats HSReplay copiées à la main : propriété d’HSReplay, jamais versionnées ni distribuées.
+stats-hsreplay*

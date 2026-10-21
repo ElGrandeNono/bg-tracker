@@ -73,6 +73,8 @@ describe('alertes : déclenchement unique', () => {
       tavernBuffs: [],
       manualTribes: undefined,
       deityCardId: undefined,
+      choiceStats: undefined,
+      externalStats: { 'heroes-solo': undefined, 'heroes-duos': undefined, trinkets: undefined },
       appVersion: '0.0.0',
       updateStatus: { state: 'idle' },
     };

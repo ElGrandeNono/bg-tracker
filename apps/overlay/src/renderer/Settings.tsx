@@ -8,6 +8,7 @@ import type {
   SettingsPatch,
   Theme,
   UpdateStatus,
+  ExternalStatsSummary,
 } from '../shared/payload.js';
 import { useI18n } from './i18n.js';
 
@@ -31,7 +32,9 @@ const SECTIONS: readonly (keyof SectionVisibility)[] = [
   'simulation',
   'opponentBoard',
   'counters',
+  'choiceStats',
 ];
+const STATS_PAGES = ['heroes-solo', 'heroes-duos', 'trinkets'] as const;
 const ALERTS: readonly (keyof AlertSettings)[] = [
   'turnStart',
   'timerLow',
@@ -44,6 +47,8 @@ export function Settings({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
   const [s, setS] = useState<OverlaySettings | undefined>();
   const [version, setVersion] = useState('');
   const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' });
+  const [ext, setExt] = useState<ExternalStatsSummary | undefined>();
+  const [statsMsg, setStatsMsg] = useState<string | undefined>();
   const [port, setPort] = useState('');
   const t = useI18n();
   const m = t.settings;
@@ -52,6 +57,7 @@ export function Settings({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
       setS(p.settings);
       setVersion(p.appVersion);
       setUpdate(p.updateStatus);
+      setExt(p.externalStats);
     });
     bridge.ready();
     return off;
@@ -222,6 +228,51 @@ export function Settings({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
           {check(m.hidePool, s.streamer.hidePool, (v) => {
             patch({ streamer: { hidePool: v } });
           })}
+        </section>
+
+        <section>
+          <h2>{m.externalStats}</h2>
+          <p className="settings__hint">{m.externalStatsHelp}</p>
+          <ul className="settings__stats">
+            {STATS_PAGES.map((page) => {
+              const e = ext?.[page];
+              return (
+                <li key={page}>
+                  {m.statsPages[page]} :{' '}
+                  {e === undefined
+                    ? m.statsNone
+                    : m.statsLine(
+                        e.count,
+                        new Date(e.updatedAt).toLocaleString(t.locale, {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }),
+                      )}
+                </li>
+              );
+            })}
+          </ul>
+          <button
+            onClick={() => {
+              void bridge.importStatsFromClipboard().then((r) => {
+                setStatsMsg(
+                  r.error === 'unrecognized'
+                    ? m.statsUnrecognized
+                    : r.error === 'noCards' || r.page === undefined
+                      ? m.statsNoCards
+                      : m.statsResult(m.statsPages[r.page], r.matched, r.unmatched.length),
+                );
+              });
+            }}
+          >
+            {m.pasteStats}
+          </button>
+          {statsMsg !== undefined && (
+            <p className="settings__hint" role="status">
+              {statsMsg}
+            </p>
+          )}
+          <p className="settings__hint">{m.heroAvgLocked}</p>
         </section>
 
         <section>

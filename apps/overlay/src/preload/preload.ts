@@ -47,6 +47,9 @@ const bridge: BgtBridge = {
   updateSettings(patch) {
     ipcRenderer.send(CHANNELS.updateSettings, patch);
   },
+  importStatsFromClipboard() {
+    return ipcRenderer.invoke(CHANNELS.importStats);
+  },
   checkUpdates() {
     ipcRenderer.send(CHANNELS.checkUpdates);
   },

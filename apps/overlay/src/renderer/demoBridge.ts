@@ -28,7 +28,8 @@ export function demoBridge(): BgtBridge {
   const emit = (): void => {
     const frame = frames[index];
     if (frame === undefined) return;
-    const shown = settings === undefined ? frame : { ...frame, settings };
+    let shown = settings === undefined ? frame : { ...frame, settings };
+    if (new URLSearchParams(location.search).has('choice')) shown = withDemoChoice(shown);
     for (const l of listeners) l(shown);
   };
   void fetch('./demo.json')
@@ -90,6 +91,8 @@ export function demoBridge(): BgtBridge {
     setInteractive() {},
     setLobbyTribes() {},
     checkUpdates() {},
+    importStatsFromClipboard: () =>
+      Promise.resolve({ page: undefined, matched: 0, unmatched: [], error: 'unrecognized' }),
     onTribeArt(l) {
       void fetch('./demo-tribe-art.json')
         .then((r) => r.json() as Promise<Record<string, string>>)
@@ -122,6 +125,32 @@ export function demoBridge(): BgtBridge {
       importLogs: () => Promise.resolve(0),
       onChanged: () => () => undefined,
       onImportProgress: () => () => undefined,
+    },
+  };
+}
+
+/** `?choice` : choix de bibelots avec des stats INVENTÉES (synthetic), pour l'UI seulement. */
+function withDemoChoice(p: OverlayPayload): OverlayPayload {
+  const opt = (cardId: string, pickRate: number, avgPlacement: number, variants?: number) => ({
+    cardId,
+    stats: {
+      pickRate,
+      avgPlacement,
+      distribution: variants === undefined ? [0.2, 0.15, 0.15, 0.1, 0.1, 0.1, 0.1, 0.1] : undefined,
+      variants,
+    },
+  });
+  return {
+    ...p,
+    names: {
+      ...p.names,
+      DEMO_T1: 'Portrait éternel',
+      DEMO_T2: 'Boussole colorée',
+      DEMO_T3: 'Médaillon du chasseur',
+    },
+    choiceStats: {
+      kind: 'trinket',
+      options: [opt('DEMO_T1', 0.3, 3.8), opt('DEMO_T2', 0.45, 3.4, 2), opt('DEMO_T3', 0.25, 4.1)],
     },
   };
 }

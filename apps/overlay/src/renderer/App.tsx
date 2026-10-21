@@ -580,6 +580,67 @@ function TribeIcons({
   );
 }
 
+/**
+ * Stats des héros / bibelots proposés (copie HSReplay faite par le joueur), dans l'ordre du jeu.
+ * La meilleure place moyenne (ou, à défaut, le plus fort taux de choix) est mise en avant.
+ */
+function ChoicePanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+  const m = useI18n();
+  const c = p.choiceStats;
+  if (c === undefined || c.options.every((o) => o.stats === undefined)) return null;
+  const pct = (x: number): string =>
+    `${(x * 100).toLocaleString(m.locale, { maximumFractionDigits: 1 })} %`;
+  const avg = (x: number): string => x.toLocaleString(m.locale, { minimumFractionDigits: 2 });
+  const withAvg = c.options.filter((o) => o.stats?.avgPlacement !== undefined);
+  const best =
+    withAvg.length > 0
+      ? withAvg.reduce((a, b) =>
+          (a.stats?.avgPlacement ?? 9) <= (b.stats?.avgPlacement ?? 9) ? a : b,
+        ).cardId
+      : c.options.reduce((a, b) => ((a.stats?.pickRate ?? 0) >= (b.stats?.pickRate ?? 0) ? a : b))
+          .cardId;
+  return (
+    <section className="choice">
+      <h3 className="choice__title">{c.kind === 'hero' ? m.choice.heroes : m.choice.trinkets}</h3>
+      <ol className="choice__options">
+        {c.options.map((o) => {
+          const s = o.stats;
+          return (
+            <li
+              key={o.cardId}
+              className={`choice__option ${o.cardId === best ? 'choice__option--best' : ''}`}
+              title={
+                s?.distribution === undefined
+                  ? undefined
+                  : m.choice.distribution(s.distribution.map((d) => pct(d)).join(' · '))
+              }
+            >
+              <span className="choice__name">
+                {nameOf(p.names, o.cardId)}
+                {s?.variants !== undefined && <small> ≈</small>}
+              </span>
+              {s === undefined ? (
+                <small>{m.choice.none}</small>
+              ) : (
+                <>
+                  {s.avgPlacement !== undefined && (
+                    <span>
+                      <b>{avg(s.avgPlacement)}</b> <small>{m.choice.avg}</small>
+                    </span>
+                  )}
+                  <span>
+                    <b>{pct(s.pickRate)}</b> <small>{m.choice.pick}</small>
+                  </span>
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
 /** Compteurs à droite du pouvoir héroïque (recrutement uniquement). */
 function Counters({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const m = useI18n();
@@ -877,6 +938,12 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
             panel('sim', <CombatSim p={payload} />)}
           {solo && inProgress && panel('players', <Lobby p={payload} />)}
           {solo && showCounters && panel('counters', <Counters p={payload} />)}
+          {/* Aussi en Duos : seul le choix affiché (héros, bibelots) est utilisé. */}
+          {view.isBattlegrounds &&
+            view.mode !== 'unknown' &&
+            s.choiceStats &&
+            payload.choiceStats !== undefined &&
+            panel('choice', <ChoicePanel p={payload} />)}
         </div>
       </TribeArtContext.Provider>
     </BridgeContext.Provider>
