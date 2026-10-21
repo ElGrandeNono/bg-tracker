@@ -58,7 +58,13 @@ export interface TribeOptions {
   readonly minDistinctCards: number;
 }
 
-export const defaultTribeOptions: TribeOptions = { expectedTribes: 5, minDistinctCards: 8 };
+/**
+ * Seuil mesuré le 21/10/2026 sur 10 parties complètes (fixtures `bg-solo-*`) : les tribus hors
+ * lobby ne dépassent jamais 3 cartes distinctes, celles du lobby en ont 8 à 34 en fin de partie ;
+ * aucune erreur pour un seuil de 3 à 8. 5 garde 2 cartes de marge et identifie les 5 tribus au
+ * tour 7,3 en moyenne (8,8 avec l'ancien seuil de 8).
+ */
+export const defaultTribeOptions: TribeOptions = { expectedTribes: 5, minDistinctCards: 5 };
 
 /** Version dorée → carte de base (`BG27_556_G` → `BG27_556`), forme observée dans les logs. */
 export function baseMinionCardId(cardId: string): string {
