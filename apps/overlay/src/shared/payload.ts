@@ -262,10 +262,11 @@ export type UpdateStatus =
   | { readonly state: 'idle' | 'devBuild' | 'checking' | 'upToDate' | 'noRelease' | 'error' }
   | { readonly state: 'available' | 'downloading' | 'ready'; readonly version: string };
 
+/** Bonus des serviteurs de la taverne : carte d'enchantement source et sa dernière valeur. */
 export interface TavernBuff {
-  readonly tribe: string;
-  readonly attack: number;
-  readonly health: number;
+  readonly source: string;
+  readonly attack: number | undefined;
+  readonly health: number | undefined;
 }
 
 export interface CombatSimPayload {

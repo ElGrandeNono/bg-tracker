@@ -141,9 +141,8 @@ const fr = {
     freeRefresh: (n: number) => `Rafraîchissements gratuits : ${n}`,
     bloodGem: (a: number, h: number) => `Gemmes de sang : bonus +${a}/+${h}`,
     spells: (a: number, h: number) => `Sorts de la taverne : +${a} ATQ / +${h} PV`,
-    tavern: (tribe: string, a: number, h: number) =>
-      `Serviteurs de la taverne (${tribe}) : +${a}/+${h} (d’après la boutique affichée)`,
-    all: 'tous',
+    tavern: (source: string, value: string) =>
+      `Serviteurs de la taverne : ${source} ${value} (enchantement vu sur la boutique)`,
   },
   season: {
     trinkets: 'Bibelots',
@@ -497,8 +496,7 @@ const en: Messages = {
     freeRefresh: (n) => `Free refreshes: ${n}`,
     bloodGem: (a, h) => `Blood Gems: bonus +${a}/+${h}`,
     spells: (a, h) => `Tavern spells: +${a} Attack / +${h} Health`,
-    tavern: (tribe, a, h) => `Tavern minions (${tribe}): +${a}/+${h} (from the shop shown)`,
-    all: 'all',
+    tavern: (source, value) => `Tavern minions: ${source} ${value} (enchantment seen in the shop)`,
   },
   season: {
     trinkets: 'Trinkets',

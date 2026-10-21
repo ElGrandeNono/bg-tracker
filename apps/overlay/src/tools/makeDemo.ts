@@ -6,7 +6,7 @@ import { GameRecorder, HistoryStore } from '@bgt/history';
 import { buildPoolCatalog, loadCardDb, type CardDb } from '@bgt/data';
 import { simulate } from '@bgt/sim';
 import { buildSimRequest } from '../main/combatSim.js';
-import { tavernBuffs } from '../main/tavernBuffs.js';
+import { trackTavernBuffs } from '../main/tavernBuffs.js';
 import { cardArt, loadTribeArt } from '../main/tribeArt.js';
 import {
   currentPoolRules as S14_POOL_RULES,
@@ -17,7 +17,7 @@ import {
 import type { PoolCard } from '@bgt/core';
 import type { CatalogCard, HistoryGame } from '../shared/payload.js';
 import { catalogCards, poolPayload } from '../main/poolPayload.js';
-import { DEFAULT_SETTINGS, type OverlayPayload } from '../shared/payload.js';
+import { DEFAULT_SETTINGS, type OverlayPayload, type TavernBuff } from '../shared/payload.js';
 
 /**
  * Génère `demo.json` pour développer l'UI dans un navigateur : instantanés de la vue filtrée
@@ -95,7 +95,15 @@ function demoSim(view: OverlayView): OverlayPayload['combatSim'] {
   };
 }
 
-const frames: OverlayPayload[] = views.map((view) => ({
+// Bonus de la taverne suivis d'instantané en instantané, comme dans l'overlay.
+let tavernMemory = new Map<string, TavernBuff>();
+const tavernByFrame = views.map((v) => {
+  tavernMemory = trackTavernBuffs(tavernMemory, v.shopEnchantments);
+  return [...tavernMemory.values()];
+});
+for (const b of tavernMemory.values()) names[b.source] = db?.name(b.source) ?? b.source;
+
+const frames: OverlayPayload[] = views.map((view, i) => ({
   view,
   names,
   status: {
@@ -119,13 +127,7 @@ const frames: OverlayPayload[] = views.map((view) => ({
     const dbf = view.season?.counters.deityDbfId;
     return dbf === undefined ? undefined : db?.byDbfId(dbf)?.id;
   })(),
-  tavernBuffs: tavernBuffs(view.shop, (id) => {
-    const info = db?.byId(id);
-    const c = catalog.find((x) => x.id === id);
-    return info?.attack === undefined || info.health === undefined || c === undefined
-      ? undefined
-      : { attack: info.attack, health: info.health, tribes: c.tribes };
-  }),
+  tavernBuffs: tavernByFrame[i] ?? [],
 }));
 await mkdir(dirname(out), { recursive: true });
 await writeFile(out, JSON.stringify(frames));

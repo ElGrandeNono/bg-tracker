@@ -141,6 +141,13 @@ export interface VisibleView<V extends SeasonViewBase = SeasonViewBase> {
   readonly localBoard: readonly VisibleMinion[];
   /** Boutique de Bob affichée (serviteurs du dummy en jeu pendant le recrutement), sinon vide. */
   readonly shop: readonly VisibleMinion[];
+  /**
+   * Enchantements posés sur les serviteurs de cette boutique (visibles au survol en jeu), par carte
+   * d'enchantement : valeurs `TAG_SCRIPT_DATA_NUM_1/2` et nombre de serviteurs qui le portent.
+   * Vérifié sur `BG20_GEMe` (gemmes de sang, logs du 21-22/10/2026) : NUM_1/NUM_2 = bonus ATQ/PV,
+   * identiques à l'écart mesuré sur les serviteurs de la boutique.
+   */
+  readonly shopEnchantments: readonly ShopEnchantment[];
   /** Combat en cours dont les plateaux sont connus (affichés à l'écran). */
   readonly currentCombat:
     | {
@@ -156,6 +163,13 @@ export interface VisibleView<V extends SeasonViewBase = SeasonViewBase> {
   readonly choice: LocalChoice | undefined;
   /** Vue du module de saison (trinkets, dons, compteurs…), construite par lui seul. */
   readonly season: V | undefined;
+}
+
+export interface ShopEnchantment {
+  readonly cardId: string;
+  readonly attack: number | undefined;
+  readonly health: number | undefined;
+  readonly minions: number;
 }
 
 function toVisibleMinion(m: BoardMinion): VisibleMinion {
@@ -207,6 +221,32 @@ function shop(bg: BgGame, state: GameState): VisibleMinion[] {
   const last = bg.combats.at(-1);
   if ((last !== undefined && last.endMs === undefined) || bg.phase !== 'recruit') return [];
   return minionsInPlay(state, dummyPlayer(state)?.playerId);
+}
+
+function shopEnchantments(bg: BgGame, state: GameState): ShopEnchantment[] {
+  const last = bg.combats.at(-1);
+  if ((last !== undefined && last.endMs === undefined) || bg.phase !== 'recruit') return [];
+  const bob = dummyPlayer(state)?.playerId;
+  if (bob === undefined) return [];
+  const shopIds = new Set<number>();
+  for (const e of state.entities.values()) {
+    if (tagOf(e, 'CARDTYPE') !== 'MINION' || tagOf(e, 'ZONE') !== 'PLAY') continue;
+    if (numTag(e, 'CONTROLLER') === bob) shopIds.add(e.id);
+  }
+  const out = new Map<string, ShopEnchantment>();
+  for (const e of state.entities.values()) {
+    if (e.cardId === '' || tagOf(e, 'CARDTYPE') !== 'ENCHANTMENT' || tagOf(e, 'ZONE') !== 'PLAY')
+      continue;
+    if (!shopIds.has(numTag(e, 'ATTACHED') ?? -1)) continue;
+    const prev = out.get(e.cardId);
+    out.set(e.cardId, {
+      cardId: e.cardId,
+      attack: numTag(e, 'TAG_SCRIPT_DATA_NUM_1') ?? prev?.attack,
+      health: numTag(e, 'TAG_SCRIPT_DATA_NUM_2') ?? prev?.health,
+      minions: (prev?.minions ?? 0) + 1,
+    });
+  }
+  return [...out.values()];
 }
 
 function minionsInPlay(state: GameState, controller: number | undefined): VisibleMinion[] {
@@ -369,6 +409,7 @@ export function buildVisibleView<V extends SeasonViewBase = SeasonViewBase>(
     poolSightings: poolSightings(bg, state, players),
     localBoard: localBoard(bg, state),
     shop: live ? shop(bg, state) : [],
+    shopEnchantments: live ? shopEnchantments(bg, state) : [],
     currentCombat:
       current !== undefined && current.endMs === undefined && current.boardsLocked && live
         ? {

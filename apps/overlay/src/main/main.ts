@@ -34,6 +34,7 @@ import {
   type ImportStatsResult,
   type HsWindowState,
   type OverlayPayload,
+  type TavernBuff,
   type OverlaySettings,
   type CatalogCard,
   type CombatSimPayload,
@@ -43,7 +44,7 @@ import { checkGameConfig, offerConfigFixes } from './gameSetup.js';
 import { catalogCards, poolPayload } from './poolPayload.js';
 import { currentPoolRules, currentSeason, overlayView } from './season.js';
 import { buildSimRequest, type SimRequest } from './combatSim.js';
-import { tavernBuffs, type BaseCard } from './tavernBuffs.js';
+import { trackTavernBuffs } from './tavernBuffs.js';
 import { cardArt, loadTribeArt } from './tribeArt.js';
 import { ScreenTribeReader } from './screenTribes.js';
 import {
@@ -189,8 +190,6 @@ let status: OverlayStatus = {
   stale: false,
 };
 let cardDb: CardDb | undefined;
-/** Catalogue du pool par cardId (tribus des serviteurs de la boutique). */
-let catalogById = new Map<string, PoolCard>();
 /** Images des tribus (data URL), chargées une fois par build. */
 let tribeArt: Record<string, string> | undefined;
 /** Images de cartes déjà demandées (divinité). */
@@ -231,12 +230,8 @@ function ensureCardArt(cardId: string): void {
 /** La souris survole un bouton de l'overlay : il reçoit les clics. */
 let overButton = false;
 
-function baseCard(cardId: string): BaseCard | undefined {
-  const info = cardDb?.byId(cardId);
-  const c = catalogById.get(cardId);
-  if (info?.attack === undefined || info.health === undefined || c === undefined) return undefined;
-  return { attack: info.attack, health: info.health, tribes: c.tribes };
-}
+/** Bonus de la taverne suivis pendant la partie `gameIndex` (voir tavernBuffs.ts). */
+let tavernMemory: { gameIndex: number; buffs: Map<string, TavernBuff> } | undefined;
 /** Build + locale des données chargées (un changement de langue recharge les noms). */
 let cardDbKey: string | undefined;
 let timerEndsAt: number | undefined;
@@ -308,7 +303,6 @@ async function ensureCardDb(build: string | undefined): Promise<void> {
     cardDb = result.db;
     poolCatalog = buildPoolCatalog(result.db);
     uiCatalog = catalogCards(result.db, poolCatalog, poolRules);
-    catalogById = new Map(poolCatalog.map((c) => [c.id, c]));
     void loadTribeArt(poolCatalog, artDir()).then((art) => {
       addArt(art);
     });
@@ -385,12 +379,19 @@ function push(): void {
   if (status.source === 'live') history?.observe(view);
   if (win === undefined || !rendererReady) return;
   void ensureCardDb(view.build);
+  if (tavernMemory?.gameIndex !== view.gameIndex) {
+    tavernMemory = { gameIndex: view.gameIndex, buffs: new Map() };
+  }
+  tavernMemory.buffs = trackTavernBuffs(tavernMemory.buffs, view.shopEnchantments);
   const payload: OverlayPayload = {
     view,
     names: {
       ...namesFor(view),
       ...(deityCardId === undefined ? {} : { [deityCardId]: cardDb?.name(deityCardId) ?? '' }),
       ...Object.fromEntries((view.choice?.cardIds ?? []).map((id) => [id, cardDb?.name(id) ?? id])),
+      ...Object.fromEntries(
+        [...tavernMemory.buffs.keys()].map((id) => [id, cardDb?.name(id) ?? id]),
+      ),
     },
     status: {
       ...status,
@@ -403,7 +404,7 @@ function push(): void {
     timerEndsAt: view.phase === 'recruit' ? timerEndsAt : undefined,
     pool: poolCatalog.length === 0 ? undefined : poolPayload(view, poolCatalog, poolRules),
     combatSim: updateSimulation(buildSimRequest(view, cardDb)),
-    tavernBuffs: tavernBuffs(view.shop, baseCard),
+    tavernBuffs: [...tavernMemory.buffs.values()],
     manualTribes: manual,
     choiceStats: choiceStatsFor(view),
     externalStats: summarize(externalStats),

@@ -1,37 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import type { VisibleMinion } from '@bgt/core';
-import { tavernBuffs, type BaseCard } from './tavernBuffs.js';
+import { trackTavernBuffs } from './tavernBuffs.js';
 
-// Boutiques synthétiques (synthetic) : cas ciblés du calcul, cartes fictives.
-const BASE: Readonly<Record<string, BaseCard>> = {
-  E1: { attack: 2, health: 2, tribes: ['ELEMENTALS'] },
-  E2: { attack: 3, health: 1, tribes: ['ELEMENTALS'] },
-  M1: { attack: 1, health: 3, tribes: ['MURLOC'] },
-  N1: { attack: 2, health: 3, tribes: [] },
-};
-const m = (cardId: string, attack: number, health: number, golden = false): VisibleMinion => ({
-  cardId,
+// Enchantements de boutique synthétiques (synthetic), valeurs du log réel du 22/10/2026.
+const gem = (attack: number, health: number, minions: number) => ({
+  cardId: 'BG20_GEMe',
   attack,
   health,
-  golden,
-  keywords: [],
+  minions,
 });
-const base = (id: string): BaseCard | undefined => BASE[id];
 
-describe('bonus des serviteurs de la taverne (synthetic)', () => {
-  it('aucun bonus : rien', () => {
-    expect(tavernBuffs([m('E1', 2, 2), m('M1', 1, 3)], base)).toEqual([]);
+describe('bonus de la taverne', () => {
+  it('suit la progression d’un enchantement porté par toute la boutique', () => {
+    let m = trackTavernBuffs(new Map(), [gem(6, 5, 4)]);
+    expect([...m.values()]).toEqual([{ source: 'BG20_GEMe', attack: 6, health: 5 }]);
+    m = trackTavernBuffs(m, [gem(18, 17, 5)]);
+    expect(m.get('BG20_GEMe')).toEqual({ source: 'BG20_GEMe', attack: 18, health: 17 });
   });
 
-  it('bonus commun puis supplément de tribu', () => {
-    const shop = [m('E1', 5, 5), m('E2', 6, 4), m('M1', 2, 4), m('N1', 3, 4)];
-    expect(tavernBuffs(shop, base)).toEqual([
-      { tribe: 'ALL', attack: 1, health: 1 },
-      { tribe: 'ELEMENTALS', attack: 2, health: 2 },
+  it('garde la dernière valeur quand la boutique ne le montre plus', () => {
+    const m = trackTavernBuffs(trackTavernBuffs(new Map(), [gem(6, 5, 3)]), []);
+    expect(m.get('BG20_GEMe')?.attack).toBe(6);
+  });
+
+  it('gemmes de sang : une seule ligne pour les deux enchantements de même valeur', () => {
+    const m = trackTavernBuffs(new Map(), [
+      gem(6, 5, 4),
+      { ...gem(6, 5, 4), cardId: 'BG20_GEMe2' },
     ]);
+    expect([...m.keys()]).toEqual(['BG20_GEMe2']);
   });
 
-  it('ignore les dorés et les cartes inconnues', () => {
-    expect(tavernBuffs([m('E1', 9, 9, true), m('X', 9, 9)], base)).toEqual([]);
+  it('ignore un bonus posé sur un seul serviteur', () => {
+    expect(trackTavernBuffs(new Map(), [gem(2, 2, 1)]).size).toBe(0);
   });
 });

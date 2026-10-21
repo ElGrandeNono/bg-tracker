@@ -675,12 +675,14 @@ function Counters({ p }: { p: OverlayPayload }): React.JSX.Element | null {
     });
   }
   for (const b of p.tavernBuffs) {
-    const tribe = b.tribe === 'ALL' ? c.all : (m.tribes[b.tribe] ?? b.tribe);
+    const source = nameOf(p.names, b.source);
+    const value =
+      b.attack === undefined || b.health === undefined ? '' : `+${b.attack}/+${b.health}`;
     items.push({
-      key: `t-${b.tribe}`,
+      key: `t-${b.source}`,
       icon: 'tavern',
-      value: `${b.tribe === 'ALL' ? '' : `${tribe.slice(0, 4)}. `}+${b.attack}/+${b.health}`,
-      hint: c.tavern(tribe, b.attack, b.health),
+      value: value === '' ? source : value,
+      hint: c.tavern(source, value),
     });
   }
   if (items.length === 0) return null;
