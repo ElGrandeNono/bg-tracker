@@ -4,7 +4,8 @@
  * `id`, `dbfId`, `name`, `type`, `techLevel`, `races`, `battlegroundsHero`,
  * `battlegroundsSkinParentId` (dbfId du héros de base d'un skin), `heroPowerDbfId`,
  * `isBattlegroundsPoolMinion`, `battlegroundsPremiumDbfId` / `battlegroundsNormalDbfId`
- * (versions dorée / normale), `isBattlegroundsDarkGift`.
+ * (versions dorée / normale), `isBattlegroundsDarkGift`, `spellSchool` (bibelots :
+ * `LESSER_TRINKET` / `GREATER_TRINKET`, vérifié le 22/10/2026 sur `/v1/254477/enUS/cards.json`).
  * Aucun asset n'est embarqué : tout est téléchargé au runtime puis mis en cache.
  */
 
@@ -31,6 +32,8 @@ export interface CardInfo {
   readonly mechanics: readonly string[];
   /** Texte de la carte (balises `<b>`, `<i>` et `[x]` éventuelles), à afficher en texte brut. */
   readonly text: string;
+  /** Bibelots : `LESSER_TRINKET` (inférieur) ou `GREATER_TRINKET` (supérieur). */
+  readonly spellSchool: string | undefined;
 }
 
 type Raw = Record<string, unknown>;
@@ -70,6 +73,7 @@ export function toCardInfo(raw: Raw): CardInfo | undefined {
     health: num(raw.health),
     mechanics: strings(raw.mechanics),
     text: str(raw.text) ?? '',
+    spellSchool: str(raw.spellSchool),
   };
 }
 

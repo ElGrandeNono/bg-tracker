@@ -68,8 +68,12 @@ const card = (id: string, name: string, extra: Partial<CardInfo>): CardInfo =>
     name,
     battlegroundsHero: false,
     battlegroundsSkinParentId: undefined,
+    spellSchool: undefined,
     ...extra,
   }) as CardInfo;
+
+const lesser = { type: 'BATTLEGROUND_TRINKET', spellSchool: 'LESSER_TRINKET' };
+const greater = { type: 'BATTLEGROUND_TRINKET', spellSchool: 'GREATER_TRINKET' };
 
 const db = {
   toJSON: () => [
@@ -79,8 +83,11 @@ const db = {
       battlegroundsSkinParentId: 1,
     }),
     card('BG31_HERO_811', "Tras'tath, Soul Parasite", { battlegroundsHero: true }),
-    card('BG30_MagicItem_301', 'Eternal Portrait', { type: 'BATTLEGROUND_TRINKET' }),
-    card('BG30_MagicItem_426', 'Colorful Compass', { type: 'BATTLEGROUND_TRINKET' }),
+    card('BG30_MagicItem_301', 'Eternal Portrait', lesser),
+    // Même nom en bibelot supérieur (vrai cas HearthstoneJSON 254477).
+    card('BG36_MagicItem_216', 'Eternal Portrait', greater),
+    card('BG30_MagicItem_801', 'Only Greater', greater),
+    card('BG30_MagicItem_426', 'Colorful Compass', lesser),
   ],
 } as unknown as CardDb;
 
@@ -112,6 +119,13 @@ describe('stats externes copiées depuis HSReplay (synthetic)', () => {
       pickRate: 0.5,
       variants: 2,
     });
+  });
+
+  it('nom commun aux deux types : associé selon l’onglet copié', () => {
+    const greaterCopy = TRINKETS.replace('Colorful CompassDemon', 'Only Greater');
+    const { cards } = matchRows(parseStatsCopy(greaterCopy) ?? { page: 'trinkets', rows: [] }, db);
+    expect(cards.BG36_MagicItem_216?.avgPlacement).toBe(3.5);
+    expect(cards.BG30_MagicItem_301).toBeUndefined();
   });
 
   it('page inconnue : rien', () => {

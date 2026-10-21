@@ -140,11 +140,33 @@ export function matchRows(
   page: ParsedPage,
   db: CardDb,
 ): { cards: Record<string, OptionStats>; unmatched: string[] } {
+  const all = db.toJSON();
+  // Bibelots : 52 noms existent en version inférieure ET supérieure (cartes différentes, coût
+  // parfois identique). La copie ne dit pas quel onglet était affiché : on le déduit des noms
+  // propres à un seul type (`spellSchool`), puis on n'associe qu'aux cartes de ce type.
+  let school: string | undefined;
+  if (page.page === 'trinkets') {
+    const schools = new Map<string, Set<string>>();
+    for (const c of all) {
+      if (c.type !== 'BATTLEGROUND_TRINKET' || c.spellSchool === undefined) continue;
+      const set = schools.get(norm(c.name)) ?? new Set<string>();
+      set.add(c.spellSchool);
+      schools.set(norm(c.name), set);
+    }
+    const votes = new Map<string, number>();
+    for (const r of page.rows) {
+      const s = schools.get(norm(r.name));
+      if (s?.size !== 1) continue;
+      const [only] = s;
+      if (only !== undefined) votes.set(only, (votes.get(only) ?? 0) + 1);
+    }
+    school = [...votes].sort((a, b) => b[1] - a[1])[0]?.[0];
+  }
   const byName = new Map<string, string>();
-  for (const c of db.toJSON()) {
+  for (const c of all) {
     const wanted =
       page.page === 'trinkets'
-        ? c.type === 'BATTLEGROUND_TRINKET'
+        ? c.type === 'BATTLEGROUND_TRINKET' && (school === undefined || c.spellSchool === school)
         : c.battlegroundsHero && c.battlegroundsSkinParentId === undefined;
     if (wanted && !byName.has(norm(c.name))) byName.set(norm(c.name), c.id);
   }

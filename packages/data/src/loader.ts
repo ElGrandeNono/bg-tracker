@@ -37,7 +37,7 @@ export interface LoadResult {
 const DEFAULT_BASE = 'https://api.hearthstonejson.com/v1';
 
 /** Version du format du cache : à incrémenter quand `CardInfo` gagne des champs. */
-const CACHE_FORMAT = 2;
+const CACHE_FORMAT = 3;
 
 const cachePath = (dir: string, build: string, locale: Locale): string =>
   join(dir, build, `${locale}.v${CACHE_FORMAT}.json`);
