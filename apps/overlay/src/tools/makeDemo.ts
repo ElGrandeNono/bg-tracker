@@ -111,6 +111,8 @@ const frames: OverlayPayload[] = views.map((view) => ({
   pool: catalog.length === 0 ? undefined : poolPayload(view, catalog, S14_POOL_RULES),
   combatSim: demoSim(view),
   manualTribes: undefined,
+  appVersion: 'démo',
+  updateStatus: { state: 'idle' },
   deityCardId: (() => {
     const dbf = view.season?.counters.deityDbfId;
     return dbf === undefined ? undefined : db?.byDbfId(dbf)?.id;

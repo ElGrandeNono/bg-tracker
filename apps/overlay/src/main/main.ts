@@ -28,6 +28,7 @@ import type { PoolCard } from '@bgt/core';
 import {
   CHANNELS,
   type SettingsPatch,
+  type UpdateStatus,
   type HsWindowState,
   type OverlayPayload,
   type OverlaySettings,
@@ -228,6 +229,18 @@ let cardDbKey: string | undefined;
 let timerEndsAt: number | undefined;
 let lastRecruitCount = 0;
 let smokeScheduled = false;
+/** Dernière vérification des mises à jour (affichée dans les Réglages). */
+let updateStatus: UpdateStatus = { state: 'idle' };
+
+function runUpdateCheck(): void {
+  void checkForUpdates(
+    () => menuStrings(settings.language),
+    (s) => {
+      updateStatus = s;
+      schedulePush();
+    },
+  );
+}
 /** Dernière ligne de log reçue en direct (abandon détecté par le silence du log). */
 let lastLineAt = Date.now();
 const STALE_MS = 180_000;
@@ -358,6 +371,8 @@ function push(): void {
     combatSim: updateSimulation(buildSimRequest(view, cardDb)),
     tavernBuffs: tavernBuffs(view.shop, baseCard),
     manualTribes: manual,
+    appVersion: app.getVersion(),
+    updateStatus,
     deityCardId,
   };
   // Toutes les fenêtres reçoivent la vue : langue et thème suivent les réglages partout.
@@ -404,9 +419,7 @@ function applySettings(next: OverlaySettings, persist = true): void {
     // Les noms de cartes sont rechargés dans la nouvelle langue au prochain envoi (push).
   }
   void syncStreamServer();
-  if (next.autoUpdate && !previous.autoUpdate && app.isPackaged) {
-    void checkForUpdates(() => menuStrings(settings.language));
-  }
+  if (next.autoUpdate && !previous.autoUpdate) runUpdateCheck();
   if (win !== undefined) {
     win.setIgnoreMouseEvents(settings.locked && !overButton, { forward: true });
     win.setFocusable(!settings.locked);
@@ -762,6 +775,10 @@ ipcMain.on(CHANNELS.setLobbyTribes, (_e, gameIndex: unknown, tribes: unknown) =>
   else manualTribes.set(gameIndex, [...new Set(list)].slice(0, 10));
   schedulePush();
 });
+// Bouton « Vérifier maintenant » : action explicite de l'utilisateur, même case décochée.
+ipcMain.on(CHANNELS.checkUpdates, () => {
+  runUpdateCheck();
+});
 ipcMain.on(CHANNELS.openSettings, () => {
   openSettings();
 });
@@ -861,9 +878,7 @@ void app.whenReady().then(async () => {
   }
   void syncStreamServer();
   // Mises à jour : uniquement si l'utilisateur l'a activé (accès réseau à GitHub).
-  if (settings.autoUpdate && app.isPackaged && smokeOut === undefined) {
-    void checkForUpdates(() => menuStrings(settings.language));
-  }
+  if (settings.autoUpdate && smokeOut === undefined) runUpdateCheck();
   await startSource();
 });
 

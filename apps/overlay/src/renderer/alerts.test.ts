@@ -73,6 +73,8 @@ describe('alertes : déclenchement unique', () => {
       tavernBuffs: [],
       manualTribes: undefined,
       deityCardId: undefined,
+      appVersion: '0.0.0',
+      updateStatus: { state: 'idle' },
     };
     const fired = new Set<string>();
     const first = dueAlerts(p, now, MESSAGES.fr, fired);

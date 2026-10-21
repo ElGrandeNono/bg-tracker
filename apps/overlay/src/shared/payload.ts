@@ -17,6 +17,7 @@ export const CHANNELS = {
   updateSettings: 'bgt:update-settings',
   setInteractive: 'bgt:set-interactive',
   setLobbyTribes: 'bgt:set-lobby-tribes',
+  checkUpdates: 'bgt:check-updates',
   tribeArt: 'bgt:tribe-art',
   historyList: 'bgt:history-list',
   historyGet: 'bgt:history-get',
@@ -212,7 +213,15 @@ export interface OverlayPayload {
   readonly manualTribes: readonly string[] | undefined;
   /** Divinité de la partie (cardId HearthstoneJSON), si connue. */
   readonly deityCardId: string | undefined;
+  /** Version de l'application installée (package.json). */
+  readonly appVersion: string;
+  /** Dernière vérification des mises à jour (Réglages › Mises à jour). */
+  readonly updateStatus: UpdateStatus;
 }
+
+export type UpdateStatus =
+  | { readonly state: 'idle' | 'devBuild' | 'checking' | 'upToDate' | 'noRelease' | 'error' }
+  | { readonly state: 'available' | 'downloading' | 'ready'; readonly version: string };
 
 export interface TavernBuff {
   readonly tribe: string;
@@ -293,6 +302,8 @@ export interface BgtBridge {
    * ne les contient pas) ; liste vide = revenir à la déduction.
    */
   setLobbyTribes(gameIndex: number, tribes: readonly string[]): void;
+  /** Vérifie maintenant les mises à jour (bouton des Réglages ; accès réseau à GitHub). */
+  checkUpdates(): void;
   /**
    * Images (data URL, HearthstoneJSON, en cache local) : clé = tribe (serviteur représentatif)
    * ou `card:<cardId>` (divinité).

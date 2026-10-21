@@ -7,6 +7,7 @@ import type {
   SectionVisibility,
   SettingsPatch,
   Theme,
+  UpdateStatus,
 } from '../shared/payload.js';
 import { useI18n } from './i18n.js';
 
@@ -41,12 +42,16 @@ const ALERTS: readonly (keyof AlertSettings)[] = [
 
 export function Settings({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
   const [s, setS] = useState<OverlaySettings | undefined>();
+  const [version, setVersion] = useState('');
+  const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' });
   const [port, setPort] = useState('');
   const t = useI18n();
   const m = t.settings;
   useEffect(() => {
     const off = bridge.onUpdate((p) => {
       setS(p.settings);
+      setVersion(p.appVersion);
+      setUpdate(p.updateStatus);
     });
     bridge.ready();
     return off;
@@ -232,6 +237,26 @@ export function Settings({ bridge }: { bridge: BgtBridge }): React.JSX.Element {
           {check(m.autoUpdate, s.autoUpdate, (v) => {
             patch({ autoUpdate: v });
           })}
+          <p className="settings__row">
+            <span>
+              {m.installedVersion} <b>{version}</b>
+            </span>
+            <button
+              disabled={update.state === 'checking' || update.state === 'downloading'}
+              onClick={() => {
+                bridge.checkUpdates();
+              }}
+            >
+              {m.checkNow}
+            </button>
+          </p>
+          {update.state !== 'idle' && (
+            <p className="settings__hint" role="status">
+              {'version' in update
+                ? m.updateState[update.state](update.version)
+                : m.updateState[update.state]}
+            </p>
+          )}
         </section>
 
         <section>

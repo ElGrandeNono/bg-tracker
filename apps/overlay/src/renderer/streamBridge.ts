@@ -34,6 +34,7 @@ export function streamBridge(): BgtBridge {
     updateSettings: none,
     setInteractive: none,
     setLobbyTribes: none,
+    checkUpdates: none,
     onTribeArt: () => none,
     history: {
       list: () => Promise.resolve({ games: [], names: {} }),

@@ -89,6 +89,7 @@ export function demoBridge(): BgtBridge {
     },
     setInteractive() {},
     setLobbyTribes() {},
+    checkUpdates() {},
     onTribeArt(l) {
       void fetch('./demo-tribe-art.json')
         .then((r) => r.json() as Promise<Record<string, string>>)

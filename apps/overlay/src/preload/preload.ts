@@ -47,6 +47,9 @@ const bridge: BgtBridge = {
   updateSettings(patch) {
     ipcRenderer.send(CHANNELS.updateSettings, patch);
   },
+  checkUpdates() {
+    ipcRenderer.send(CHANNELS.checkUpdates);
+  },
   setLobbyTribes(gameIndex, tribes) {
     ipcRenderer.send(CHANNELS.setLobbyTribes, gameIndex, [...tribes]);
   },
