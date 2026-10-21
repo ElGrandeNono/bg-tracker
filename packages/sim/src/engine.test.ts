@@ -350,3 +350,51 @@ describe('Morts-vivants et invocations (textes HearthstoneJSON frFR, build 25447
     }
   });
 });
+
+describe('gemmes de sang (Huranes)', () => {
+  const side = (a: SimMinionInput[], bloodGem?: { attack: number; health: number }) => {
+    const sa = new Side(0, { minions: a, tavernTier: 1, bloodGem });
+    const sb = new Side(1, { minions: [m(0, 100)], tavernTier: 1 });
+    return { sa, sb, ctx: new CombatContext([sa, sb], new Rng(3), DEFAULT_REGISTRY) };
+  };
+
+  it('valeur par défaut +1/+1 ; bonus du joueur ajouté (« en plus »)', () => {
+    const d = side([m(2, 3)]);
+    d.ctx.playBloodGems(d.sa, d.sa.board[0] as never, 2);
+    expect(d.sa.board[0]).toMatchObject({ attack: 4, health: 5 });
+    const b = side([m(2, 3)], { attack: 4, health: 6 });
+    b.ctx.playBloodGems(b.sa, b.sa.board[0] as never, 1);
+    expect(b.sa.board[0]).toMatchObject({ attack: 6, health: 9 });
+  });
+
+  it('Campeuse à défenses : une gemme sur elle à chaque attaque, avant les dégâts', () => {
+    // 2/3 contre 0/100 : chaque attaque la renforce de +1/+1 ; elle ne meurt jamais.
+    const out = simulateCombat(
+      {
+        a: { minions: [m(2, 3, { cardId: 'BG33_886' })], tavernTier: 1 },
+        b: { minions: [m(0, 9)], tavernTier: 1 },
+      },
+      new Rng(1),
+      DEFAULT_REGISTRY,
+    );
+    // 3 + 4 = 7 < 9, puis + 5 = 12 ≥ 9 → tué à la 3e attaque (sans gemme : 5 attaques de 2).
+    expect(out.result).toBe('win');
+    expect(out.attacks).toBe(3);
+  });
+
+  it('Longues-défenses prodigieux : une gemme quand un AUTRE allié attaque', () => {
+    const t = side([m(1, 1, { cardId: 'BG33_430' }), m(1, 1)]);
+    const attacker = t.sa.board[1] as never;
+    for (const ally of t.sa.alive()) {
+      if (ally !== attacker) DEFAULT_REGISTRY.get(ally.cardId)?.onAllyAttack?.(t.ctx, t.sa, ally);
+    }
+    expect(t.sa.board[0]).toMatchObject({ attack: 2, health: 2 });
+  });
+
+  it('cartes à gemmes approximatives côté adversaire (bonus non visible en jeu)', () => {
+    expect(effectStatus('BG33_886', ['BACON_RALLY'])).toBe('supported');
+    expect(effectStatus('BG33_886', ['BACON_RALLY'], { bloodGemUnknown: true })).toBe(
+      'unsupported',
+    );
+  });
+});

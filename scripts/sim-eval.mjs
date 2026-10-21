@@ -45,12 +45,13 @@ async function dbFor(build) {
 }
 
 /** Même construction que apps/overlay/src/main/combatSim.ts (plateaux figés : SoC résolus). */
-function toSim(b, db) {
+function toSim(b, db, bloodGemUnknown) {
   const card = db?.normalVersion(b.cardId) ?? db?.byId(b.cardId);
   const own = db?.byId(b.cardId);
   const status = sim.effectStatus(card?.id ?? b.cardId, own?.mechanics ?? card?.mechanics, {
     golden: b.golden,
     startOfCombatApplied: true,
+    bloodGemUnknown,
   });
   const has = (k) => own?.mechanics.includes(k) ?? false;
   return {
@@ -127,6 +128,15 @@ for (const file of files(inputs)) {
       open.set(key, {
         build: bg.build,
         boards: [c.localBoard, c.opponentBoard],
+        // Bonus de gemmes du joueur local (entité Player locale), comme l'overlay.
+        gem: (() => {
+          const me = core.localPlayer(state);
+          const e = me === undefined ? undefined : state.entities.get(me.entityId);
+          return {
+            attack: 1 + (numTag(e, 'BACON_BLOODGEMBUFFATKVALUE') ?? 0),
+            health: 1 + (numTag(e, 'BACON_BLOODGEMBUFFHEALTHVALUE') ?? 0),
+          };
+        })(),
         tiers: [local?.techLevel ?? 1, opp?.techLevel ?? 1],
         cap,
         before: [hp(local), hp(opp)],
@@ -153,8 +163,12 @@ for (const file of files(inputs)) {
     const actual = a0 < b0 ? 'loss' : a1 < b1 ? 'win' : 'tie';
     const db = await dbFor(o.build);
     const input = {
-      a: { minions: o.boards[0].map((m) => toSim(m, db)), tavernTier: o.tiers[0] },
-      b: { minions: o.boards[1].map((m) => toSim(m, db)), tavernTier: o.tiers[1] },
+      a: {
+        minions: o.boards[0].map((m) => toSim(m, db, false)),
+        tavernTier: o.tiers[0],
+        bloodGem: o.gem,
+      },
+      b: { minions: o.boards[1].map((m) => toSim(m, db, true)), tavernTier: o.tiers[1] },
       ...(o.cap === undefined ? {} : { damageCap: o.cap }),
     };
     const sum = sim.simulate(input, { iterations: 5000, seed: 2026 });

@@ -50,8 +50,11 @@ Le résultat est marqué **« approximatif »** dès qu'un serviteur des deux pl
 | ---------------------------------------- | ------------------------------- | ----- | ------------------------------ |
 | avant (registre initial)                 | 79 %                            | 0,334 | 29 (dont 26 justes)            |
 | après (Morts-vivants, invocations, etc.) | 79 %                            | 0,309 | 39 (dont 32 justes)            |
+| + gemmes de sang                         | 81 %                            | 0,293 | 41 (dont 33 justes)            |
 
-Erreurs restantes les plus fréquentes : gemmes de sang des Huranes (Longues-défenses prodigieux, Campeuse à défenses : valeur de gemme à vérifier dans un log), Implorateur de l'enfer dévot, Perroquet au trésor. Aucune Divinité réveillée en combat dans ces logs : C'Thun / Y'Shaarj restent non simulés faute d'observation.
+Sur les 9 parties complètes du 21/10/2026 (86 combats, mêmes sessions anonymisées, donc non indépendantes de la mesure ci-dessus) : 81 %, Brier 0,316.
+
+Erreurs restantes les plus fréquentes : Implorateur de l'enfer dévot, Perroquet au trésor, Probable perdante héroïque, Sanglier gangrené, et les cartes à gemmes de l'adversaire (valeur de ses gemmes non visible en jeu). Aucune Divinité réveillée en combat dans ces logs : C'Thun / Y'Shaarj restent non simulés faute d'observation.
 
 Le combat 4 a révélé une erreur corrigée : une Réincarnation copiait l'état courant au lieu de la carte d'origine (le Bouclier divin du Gardien de bronze n'était pas rendu). Avant correction, la défaite réelle n'y était jugée possible qu'à 4 %.
 
@@ -74,6 +77,11 @@ Les versions dorées utilisent la même entrée (l'overlay ramène un doré à s
 | `BG28_300` Liche inoffensive            | Râle d'agonie : deux squelettes 1/1 `BG_ICC_026t` (doré : quatre)                                                       |
 | `BG31_803` Insecte vrombissant          | Râle d'agonie : un hanneton 2/2 `BG28_603t` (doré : deux)                                                               |
 | `BG36_200` Chauve-souris virevoltante   | Ralliement : une Bête 1/1 `BG36_200t` (doré : deux), à sa droite (position non vérifiée)                                |
+| `BG33_886` Campeuse à défenses          | Ralliement : une gemme de sang sur elle (doré : 2)                                                                      |
+| `BG33_430` Longues-défenses prodigieux  | quand un AUTRE allié attaque : une gemme de sang sur lui (doré : 2) ; ordre avec le Ralliement non vérifié              |
+| `BG33_885` Raffineur sanguin            | Ralliement : gemmes +1/+2 en plus (doré : +2/+4) pour le reste du combat                                                |
+
+**Gemmes de sang** : une gemme vaut +1/+1 (`BG20_GEM`) **plus** le bonus du joueur (`BACON_BLOODGEMBUFFATKVALUE` / `…HEALTHVALUE`). Vérifié : texte du Raffineur sanguin (« +1/+2 en plus ») et log `bg-solo-4-parties` (bonus 3/8 → 4/10 à son Ralliement) ; en combat, la gemme est un sort `BG20_GEM_No_Impact` (`TAG_SCRIPT_DATA_NUM_1/2` = 1/1 sans bonus) appliqué par l'enchantement `BG20_GEMe2`. Fair-play : seul le bonus du joueur local est utilisé (il est visible en jeu) ; celui de l'adversaire, écrit dans le log sur l'emplacement « Bob le barman » pendant le combat, ne l'est pas → ses cartes à gemmes rendent le résultat approximatif.
 
 **Début du combat** (exact sur un plateau figé, approximatif sur ton plateau de recrutement) : `BG32_330` Éclaireur véloce, `BG27_556` Fourrageur boueux, `BG34_142` Victime de la mode, `BG24_500` Veilleur d'ambre, `BG36_245` Arcaniste runique, `BG26_963` Synthé électrique.
 

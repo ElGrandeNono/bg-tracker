@@ -65,6 +65,8 @@ export class Side {
   board: Minion[];
   /** Index du prochain attaquant. */
   next = 0;
+  /** Valeur d'une gemme de sang (modifiable en combat : Raffineur sanguin). */
+  bloodGem: { attack: number; health: number };
   /** Compteurs propres à ce camp, tenus par les effets du registre (ex. chevaliers éternels morts). */
   readonly counters = new Map<string, number>();
 
@@ -73,6 +75,7 @@ export class Side {
     input: SimSideInput,
   ) {
     this.board = input.minions.slice(0, MAX_BOARD).map((m) => new Minion(m));
+    this.bloodGem = { attack: input.bloodGem?.attack ?? 1, health: input.bloodGem?.health ?? 1 };
   }
 
   alive(): Minion[] {
@@ -96,6 +99,14 @@ export class CombatContext {
     side.board.splice(pos, 0, minion);
     if (pos < side.next) side.next++;
     return minion;
+  }
+
+  /** Joue `count` gemmes de sang sur `target` (valeur du camp au moment du jeu). */
+  playBloodGems(side: Side, target: Minion, count: number): void {
+    for (let i = 0; i < count; i++) {
+      target.attack += side.bloodGem.attack;
+      target.health += side.bloodGem.health;
+    }
   }
 
   /** Inflige des dégâts (Bouclier divin, Venimeux de la source) ; renvoie vrai si touché. */
@@ -200,6 +211,10 @@ function attackOnce(ctx: CombatContext, attackerSide: Side, attacker: Minion): v
   attacker.stealth = false;
   // Ralliement (« Chaque fois que ce serviteur attaque ») : avant les dégâts.
   ctx.registry.get(attacker.cardId)?.onAttack?.(ctx, attackerSide, attacker);
+  // « Chaque fois qu'un autre serviteur allié attaque » (ordre avec le Ralliement : non vérifié).
+  for (const ally of attackerSide.alive()) {
+    if (ally !== attacker) ctx.registry.get(ally.cardId)?.onAllyAttack?.(ctx, attackerSide, ally);
+  }
   const atk = attacker.attack;
   const def = target.attack;
   const targetPosition = defender.board.indexOf(target);

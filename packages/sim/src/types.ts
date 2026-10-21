@@ -41,6 +41,12 @@ export interface SimSideInput {
   readonly tavernTier: number;
   /** PV + armure du héros, pour la probabilité de létal (facultatif). */
   readonly heroHealth?: number | undefined;
+  /**
+   * Valeur d'une gemme de sang de ce camp : +1/+1 de base + le bonus du joueur
+   * (`BACON_BLOODGEMBUFFATKVALUE` / `…HEALTHVALUE`, « en plus » : texte du Raffineur sanguin et
+   * log du 21/10/2026). Absent = inconnu (adversaire : non visible en jeu) → +1/+1.
+   */
+  readonly bloodGem?: { readonly attack: number; readonly health: number } | undefined;
 }
 
 export interface SimInput {

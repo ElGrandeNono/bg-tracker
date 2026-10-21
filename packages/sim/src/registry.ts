@@ -24,6 +24,13 @@ export interface CardEffects {
   readonly onReborn?: (ctx: CombatContext, side: Side, self: Minion) => void;
   /** Déclenchements de Râle d'agonie EN PLUS accordés à son camp tant qu'il est vivant (Titus). */
   readonly extraDeathrattles?: (self: Minion) => number;
+  /**
+   * Joue des gemmes de sang : leur valeur dépend du bonus du joueur, connu pour le joueur local
+   * seulement (fair-play) ; côté adversaire, le résultat est donc approximatif.
+   */
+  readonly usesBloodGems?: boolean;
+  /** « Chaque fois qu'un autre serviteur allié attaque » (avant les dégâts). */
+  readonly onAllyAttack?: (ctx: CombatContext, side: Side, self: Minion) => void;
   /** Ralliement : « Chaque fois que ce serviteur attaque », avant les dégâts. */
   readonly onAttack?: (ctx: CombatContext, side: Side, self: Minion) => void;
   /** Après une attaque de ce serviteur qui a tué sa cible (`overkill` = dégâts en trop). */
@@ -210,6 +217,34 @@ const ENTRIES: Record<string, CardEffects> = {
     },
   },
 
+  // ---- Gemmes de sang (valeur du camp : +1/+1 + bonus du joueur, voir SimSideInput.bloodGem)
+  BG33_886: {
+    note: 'Campeuse à défenses — « Ralliement : joue une gemme de sang sur lui-même » (doré : 2).',
+    usesBloodGems: true,
+    onAttack: (ctx, side, self) => {
+      ctx.playBloodGems(side, self, self.golden ? 2 : 1);
+    },
+  },
+  BG33_430: {
+    note:
+      'Longues-défenses prodigieux — « Chaque fois qu’un autre serviteur allié attaque, joue une ' +
+      'gemme de sang sur lui » (doré : 2).',
+    usesBloodGems: true,
+    onAllyAttack: (ctx, side, self) => {
+      ctx.playBloodGems(side, self, self.golden ? 2 : 1);
+    },
+  },
+  BG33_885: {
+    note:
+      'Raffineur sanguin — « Ralliement : vos gemmes de sang donnent +1/+2 en plus pendant cette ' +
+      'partie » (doré : +2/+4) ; vérifié dans le log du 21/10/2026 (bonus 3/8 → 4/10).',
+    usesBloodGems: true,
+    onAttack: (_ctx, side, self) => {
+      side.bloodGem.attack += self.golden ? 2 : 1;
+      side.bloodGem.health += self.golden ? 4 : 2;
+    },
+  },
+
   // ---- Râles d'agonie sans effet sur le combat (cartes en main, taverne, Divinité hors combat)
   BG36_362: none('Garde-courroux sacrificiel — Râle d’agonie : +2/+2 à la taverne (partie).'),
   BG36_730: none('Sonneur piégé — Râle d’agonie : cartes Chair à démon aux actualisations.'),
@@ -284,6 +319,8 @@ export type EffectStatus = 'none' | 'supported' | 'unsupported';
 
 export interface EffectStatusOptions {
   readonly golden?: boolean;
+  /** Valeur des gemmes de sang de ce camp inconnue (adversaire) : cartes à gemmes approximatives. */
+  readonly bloodGemUnknown?: boolean;
   /** Le plateau est figé à la première attaque : les « Début du combat » sont déjà résolus. */
   readonly startOfCombatApplied?: boolean;
   readonly registry?: EffectRegistry;
@@ -300,6 +337,7 @@ export function effectStatus(
     if (entry.startOfCombatOnly === true && options.startOfCombatApplied !== true)
       return 'unsupported';
     if (entry.goldenUnverified === true && options.golden === true) return 'unsupported';
+    if (entry.usesBloodGems === true && options.bloodGemUnknown === true) return 'unsupported';
     return 'supported';
   }
   if (mechanics === undefined) return 'unsupported'; // carte inconnue : prudence

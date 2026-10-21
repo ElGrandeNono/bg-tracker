@@ -36,7 +36,12 @@ function baseOf(db: CardDb | undefined, m: VisibleMinion): SimMinionInput['base'
  * `socApplied` : le plateau a été figé après les « Début du combat » (plateaux de combat et derniers
  * plateaux adverses vus) ; faux pour ton plateau de recrutement.
  */
-function toSim(m: VisibleMinion, db: CardDb | undefined, socApplied: boolean): SimMinionInput {
+function toSim(
+  m: VisibleMinion,
+  db: CardDb | undefined,
+  socApplied: boolean,
+  bloodGemUnknown: boolean,
+): SimMinionInput {
   // Les effets sont indexés par la version normale ; le doré est porté par `golden`.
   const card = db?.normalVersion(m.cardId) ?? db?.byId(m.cardId);
   const status = effectStatus(
@@ -45,6 +50,7 @@ function toSim(m: VisibleMinion, db: CardDb | undefined, socApplied: boolean): S
     {
       golden: m.golden,
       startOfCombatApplied: socApplied,
+      bloodGemUnknown,
     },
   );
   return {
@@ -90,12 +96,17 @@ export function buildSimRequest(view: OverlayView, db: CardDb | undefined): SimR
     boardRound: cc?.round ?? opponent.lastBoard?.round ?? view.round,
     input: {
       a: {
-        minions: localMinions.map((m) => toSim(m, db, cc !== undefined)),
+        minions: localMinions.map((m) => toSim(m, db, cc !== undefined, false)),
         tavernTier: view.local.techLevel ?? 1,
         heroHealth: hp(local),
+        // Ta gemme de sang : +1/+1 + ton bonus (visible en jeu). Celle de l'adversaire ne l'est pas.
+        bloodGem: {
+          attack: 1 + (view.local.bloodGemBuff?.attack ?? 0),
+          health: 1 + (view.local.bloodGemBuff?.health ?? 0),
+        },
       },
       b: {
-        minions: oppMinions.map((m) => toSim(m, db, true)),
+        minions: oppMinions.map((m) => toSim(m, db, true, true)),
         tavernTier: opponent.techLevel ?? 1,
         heroHealth: hp(opponent),
       },
