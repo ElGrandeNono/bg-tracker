@@ -71,7 +71,7 @@ Power.log ─▶│  LogWatcher  │──▶│ PowerParser│──▶│  Gam
 
 - `apps/overlay/package.mjs` : prépare `release/app` (le `dist/` déjà regroupé par esbuild/Vite, sans outil de démo ni cartes de sources, plus `koffi` et son binaire `@koromix/koffi-win32-x64`), génère l'icône (PNG dessiné par le script, aucun asset externe), puis electron-builder produit l'installeur NSIS (par utilisateur, dossier modifiable). Locales Chromium limitées à fr et en-US.
 - **Non signé** : la signature de code exige un certificat (à fournir par le mainteneur ; `win.signtoolOptions` d'electron-builder). SmartScreen avertit au premier lancement.
-- **Release** (`.github/workflows/release.yml`, `windows-latest`) : sur un tag `vX.Y.Z` (doit égaler la version de `apps/overlay/package.json`), brouillon de release GitHub avec l'installeur et `latest.yml` ; lancé à la main, installeur de test en artefact.
+- **Release** (`.github/workflows/release.yml`, `windows-latest`) : sur un tag `vX.Y.Z` (doit égaler la version de `apps/overlay/package.json`), brouillon de release GitHub (créé d'abord par `gh release create --draft`, sinon electron-builder en crée deux en parallèle) avec l'installeur, son `.blockmap` et `latest.yml` ; le mainteneur publie le brouillon, et seules les releases publiées sont vues par les mises à jour. Lancé à la main : installeur de test en artefact.
 - **Mises à jour** (`main/updater.ts`, electron-updater) : uniquement si l'utilisateur l'active ; lit `latest.yml` des releases GitHub, demande avant de télécharger puis avant de redémarrer.
 - Les bundles ESM portent un `createRequire` (bannière esbuild) pour les dépendances CommonJS qui appellent `require()` dynamiquement (electron-updater).
 

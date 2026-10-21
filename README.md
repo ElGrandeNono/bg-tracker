@@ -78,7 +78,7 @@ Rejouer un log enregistré dans une fenêtre autonome : `pnpm overlay:replay <fi
 **Réseau** :
 
 - Données de cartes et illustrations des icônes de tribus : téléchargées depuis HearthstoneJSON (mises en cache localement, jamais incluses dans l'installeur). Seul accès indispensable ; aucune donnée personnelle n'est envoyée.
-- Vérification des mises à jour (**désactivée par défaut**, Réglages › Mises à jour) : interroge les releases GitHub de ce dépôt au démarrage ; rien n'est téléchargé sans votre accord.
+- Vérification des mises à jour (**désactivée par défaut**, Réglages › Mises à jour) : interroge la dernière release publiée de ce dépôt au démarrage, ou quand vous cliquez « Vérifier maintenant » (la version installée et le résultat s'affichent) ; rien n'est téléchargé sans votre accord.
 - Mode streamer (**désactivé par défaut**) : serveur local uniquement, aucune connexion sortante.
 - Aucune télémétrie.
 

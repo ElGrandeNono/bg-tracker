@@ -35,6 +35,15 @@ jobs:
         run: |
           v=$(node -p "require('./apps/overlay/package.json').version")
           test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} ≠ version $v"; exit 1; }
+      # Brouillon créé AVANT l'envoi : sinon electron-builder en crée deux en parallèle (vu sur v0.9.2).
+      - name: Brouillon de release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" --draft --title "${GITHUB_REF_NAME#v}"
+          --notes "Installeur Windows non signé (SmartScreen / antivirus peuvent avertir). BG Tracker n'est pas affilié à Blizzard Entertainment."
       - name: Installeur (brouillon de release)
         if: startsWith(github.ref, 'refs/tags/v')
         run: pnpm --filter @bgt/overlay package --publish
