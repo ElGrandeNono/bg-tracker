@@ -28,7 +28,8 @@ import {
  *   sous lequel le log désigne alors cet emplacement est celui de l'adversaire. Posé sur le
  *   joueur local, ce tag vaut l'id du joueur local lui-même ; 0 = fin du combat.
  * - Prochain adversaire : `NEXT_OPPONENT_PLAYER_ID` sur le joueur local (affiché en jeu).
- * - Place finale : dernière `PLAYER_LEADERBOARD_PLACE` du héros local quand il est éliminé.
+ * - Place finale : DERNIÈRE `PLAYER_LEADERBOARD_PLACE` du héros local, y compris après
+ *   l'élimination (reclassement des joueurs morts au même tour, observé jusqu'à 1 s après).
  *   `PLAYSTATE=LOST` est reçu même dans le top 4 : il ne sert qu'à dater l'élimination.
  */
 
@@ -478,6 +479,18 @@ function updateLeaderboardHero(bg: BgGame, hero: Entity, state: GameState, t: nu
   }
   const player = playerFromHero(hero, isLocal || (existing?.isLocal ?? false), existing);
   bg = { ...bg, players: { ...bg.players, [playerId]: player } };
+  // Après l'élimination, le jeu reclasse encore les joueurs morts au même tour : la place
+  // finale est la DERNIÈRE valeur (fixture bg-solo-3-parties, partie 2 : 6 au `LOST`, 4 une
+  // seconde plus tard ; bg-solo-4-parties, partie 1 : 5 puis 6).
+  if (
+    isLocal &&
+    bg.outcome === 'finished' &&
+    bg.finalPlace !== undefined &&
+    player.place !== undefined &&
+    player.place !== bg.finalPlace
+  ) {
+    bg = { ...bg, finalPlace: player.place };
+  }
   if (isLocal && bg.localPlayerId === undefined) bg = { ...bg, localPlayerId: playerId };
   // Le premier niveau (passage à 1 en début de partie) n'est pas une montée de taverne.
   if (

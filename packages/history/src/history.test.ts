@@ -120,6 +120,12 @@ describe('HistoryStore (SQLite)', () => {
         });
       }
       store.update(id, { mmr: 6543, notes: 'Murlocs', tags: ['test'] });
+      // Reclassement après l'élimination : la place d'une partie finie est corrigée, saisies
+      // conservées ; un renvoi identique ne change rien.
+      expect(store.insert({ ...g('complete'), finalPlace: 2 })).toBe(true);
+      expect(store.get(id)).toMatchObject({ finalPlace: 2, mmr: 6543, notes: 'Murlocs' });
+      expect(store.insert({ ...g('complete'), finalPlace: 2 })).toBe(false);
+      store.insert({ ...g('complete'), finalPlace: 3 });
       store.close();
 
       const reopened = new HistoryStore(path);

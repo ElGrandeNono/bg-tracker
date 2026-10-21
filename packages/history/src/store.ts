@@ -122,8 +122,11 @@ export class HistoryStore {
            outcome = excluded.outcome, final_place = excluded.final_place, tribes = excluded.tribes,
            rounds = excluded.rounds, duration_ms = excluded.duration_ms, truncated = excluded.truncated,
            replay = excluded.replay, hero_base_card_id = excluded.hero_base_card_id
-         WHERE games.outcome <> 'finished' AND excluded.rounds >= games.rounds
-           AND (excluded.outcome <> games.outcome OR excluded.rounds > games.rounds)`,
+         WHERE (games.outcome <> 'finished' AND excluded.rounds >= games.rounds
+             AND (excluded.outcome <> games.outcome OR excluded.rounds > games.rounds))
+           -- Reclassement après l'élimination : la place finale d'une partie finie peut changer.
+           OR (games.outcome = 'finished' AND excluded.outcome = 'finished'
+             AND excluded.final_place IS NOT games.final_place)`,
       )
       .run(
         g.key,

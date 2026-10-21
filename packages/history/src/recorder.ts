@@ -14,6 +14,8 @@ export class GameRecorder {
   private rounds = new Map<number, ReplayRound>();
   private lastView: VisibleView | undefined;
   private delivered = false;
+  /** Place finale livrée : renvoyée si le jeu reclasse le joueur après son élimination. */
+  private deliveredPlace: number | undefined;
   private firstSeenAt: Date | undefined;
 
   constructor(
@@ -70,6 +72,16 @@ export class GameRecorder {
 
     if (!this.delivered && view.outcome !== 'inProgress') {
       this.delivered = true;
+      this.deliveredPlace = view.finalPlace;
+      return this.build(view, false);
+    }
+    if (
+      this.delivered &&
+      view.outcome === 'finished' &&
+      view.finalPlace !== undefined &&
+      view.finalPlace !== this.deliveredPlace
+    ) {
+      this.deliveredPlace = view.finalPlace;
       return this.build(view, false);
     }
     return out;
