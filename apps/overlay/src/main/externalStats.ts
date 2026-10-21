@@ -205,3 +205,19 @@ export function summarize(stats: StoredStats): ExternalStatsSummary {
     trinkets: one('trinkets'),
   };
 }
+
+/**
+ * Ajoute une copie aux stats enregistrées. HSReplay affiche les bibelots inférieurs et supérieurs
+ * sur deux onglets de la même page, sans que le texte copié dise lequel était actif : les copies
+ * de bibelots se cumulent (la plus récente l'emporte carte par carte), les pages de héros sont
+ * remplacées.
+ */
+export function mergeImport(
+  stored: StoredStats,
+  page: StatsPage,
+  cards: Record<string, OptionStats>,
+  updatedAt: string,
+): StoredStats {
+  const previous = page === 'trinkets' ? (stored.pages.trinkets?.cards ?? {}) : {};
+  return { pages: { ...stored.pages, [page]: { updatedAt, cards: { ...previous, ...cards } } } };
+}

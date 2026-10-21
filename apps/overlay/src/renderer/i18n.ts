@@ -315,7 +315,7 @@ const fr = {
     hidePool: 'Masquer le pool',
     externalStats: 'Stats externes (HSReplay)',
     externalStatsHelp:
-      'Sur HSReplay (page Héros, Héros Duos ou Bibelots), sélectionnez toute la page (Ctrl+A), copiez (Ctrl+C), puis cliquez ci-dessous. BG Tracker ne contacte jamais le site ; les stats restent sur cet ordinateur.',
+      'Sur HSReplay (page Héros, Héros Duos ou Bibelots), sélectionnez toute la page (Ctrl+A), copiez (Ctrl+C), puis cliquez ci-dessous. Bibelots : une copie pour l’onglet Lesser, une autre pour Greater (elles se cumulent). BG Tracker ne contacte jamais le site ; les stats restent sur cet ordinateur.',
     pasteStats: 'Actualiser depuis le presse-papiers',
     statsPages: {
       'heroes-solo': 'Héros (solo)',
@@ -667,7 +667,7 @@ const en: Messages = {
     hidePool: 'Hide pool',
     externalStats: 'External stats (HSReplay)',
     externalStatsHelp:
-      'On HSReplay (Heroes, Duos Heroes or Trinkets page), select the whole page (Ctrl+A), copy (Ctrl+C), then click below. BG Tracker never contacts the site; the stats stay on this computer.',
+      'On HSReplay (Heroes, Duos Heroes or Trinkets page), select the whole page (Ctrl+A), copy (Ctrl+C), then click below. Trinkets: one copy for the Lesser tab, another for Greater (they add up). BG Tracker never contacts the site; the stats stay on this computer.',
     pasteStats: 'Refresh from clipboard',
     statsPages: {
       'heroes-solo': 'Heroes (solo)',

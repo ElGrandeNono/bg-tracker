@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CardDb, CardInfo } from '@bgt/data';
-import { matchRows, parseStatsCopy, statsFor } from './externalStats.js';
+import { matchRows, mergeImport, parseStatsCopy, statsFor } from './externalStats.js';
 
 // Copies SYNTHÉTIQUES (synthetic) au format observé sur HSReplay le 21/10/2026 : noms réels de
 // cartes, chiffres inventés. Aucune donnée HSReplay n'est versionnée (propriété du site).
@@ -116,5 +116,23 @@ describe('stats externes copiées depuis HSReplay (synthetic)', () => {
 
   it('page inconnue : rien', () => {
     expect(parseStatsCopy('Bonjour')).toBeUndefined();
+  });
+
+  it('bibelots inférieurs puis supérieurs : les copies se cumulent, les héros sont remplacés', () => {
+    const s = (pickRate: number) => ({
+      pickRate,
+      avgPlacement: undefined,
+      distribution: undefined,
+      variants: undefined,
+    });
+    let stored = mergeImport({ pages: {} }, 'trinkets', { A: s(0.1), B: s(0.2) }, 't1');
+    stored = mergeImport(stored, 'trinkets', { B: s(0.3), C: s(0.4) }, 't2');
+    expect(stored.pages.trinkets).toEqual({
+      updatedAt: 't2',
+      cards: { A: s(0.1), B: s(0.3), C: s(0.4) },
+    });
+    stored = mergeImport(stored, 'heroes-solo', { H1: s(0.5) }, 't3');
+    stored = mergeImport(stored, 'heroes-solo', { H2: s(0.6) }, 't4');
+    expect(Object.keys(stored.pages['heroes-solo']?.cards ?? {})).toEqual(['H2']);
   });
 });

@@ -49,6 +49,7 @@ import { ScreenTribeReader } from './screenTribes.js';
 import {
   loadStoredStats,
   matchRows,
+  mergeImport,
   parseStatsCopy,
   saveStoredStats,
   statsFor,
@@ -827,12 +828,7 @@ ipcMain.handle(CHANNELS.importStats, async (): Promise<ImportStatsResult> => {
   const { cards, unmatched } = matchRows(parsed, en.db);
   const matched = Object.keys(cards).length;
   if (matched > 0) {
-    externalStats = {
-      pages: {
-        ...externalStats.pages,
-        [parsed.page]: { updatedAt: new Date().toISOString(), cards },
-      },
-    };
+    externalStats = mergeImport(externalStats, parsed.page, cards, new Date().toISOString());
     await saveStoredStats(statsFile(), externalStats);
     schedulePush();
   }
