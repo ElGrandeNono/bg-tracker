@@ -67,6 +67,22 @@ export type PowerEvent =
   /** Ligne `DebugPrintGame` de la forme `Clé=Valeur` (BuildNumber, GameType, FormatType, ScenarioID). */
   | (Base & { readonly type: 'gameInfo'; readonly key: string; readonly value: string })
   | (Base & { readonly type: 'playerName'; readonly playerId: number; readonly name: string })
+  /**
+   * Choix proposé à un joueur (`GameState.DebugPrintEntityChoices`) : héros au `MULLIGAN`,
+   * Découvertes / bibelots en `GENERAL`. `cards` : cartes proposées et leur PlayerID.
+   */
+  | (Base & {
+      readonly type: 'choices';
+      readonly id: number;
+      readonly choiceType: string;
+      readonly cards: readonly { readonly cardId: string; readonly playerId: number }[];
+    })
+  /** Choix fait (`GameState.DebugPrintEntitiesChosen`), même `id` que la proposition. */
+  | (Base & {
+      readonly type: 'chosen';
+      readonly id: number;
+      readonly cards: readonly { readonly cardId: string; readonly playerId: number }[];
+    })
   /** Le jeu a tronqué le fichier (limite de taille atteinte). */
   | (Base & { readonly type: 'truncated' })
   /** Plus rien ne viendra de ce flux (fin du fichier rejoué, ou session de jeu remplacée). */

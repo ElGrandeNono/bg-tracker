@@ -164,6 +164,8 @@ export function reduceGameState(state: GameState, event: PowerEvent): GameState 
     case 'endOfStream':
     case 'stateMarker':
     case 'displayMarker':
+    case 'choices':
+    case 'chosen':
       return state;
   }
 }

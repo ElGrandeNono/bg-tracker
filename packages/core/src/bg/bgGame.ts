@@ -35,6 +35,16 @@ import {
 
 export type GameMode = 'solo' | 'duos' | 'unknown';
 
+/**
+ * Choix en cours du joueur local (cartes affichées à l'écran). `hero` : `ChoiceType=MULLIGAN` ;
+ * `trinket` : toutes les cartes sont des bibelots (`…MagicItem…`, fixtures bg-solo-* du 21/10).
+ */
+export interface LocalChoice {
+  readonly id: number;
+  readonly kind: 'hero' | 'trinket' | 'other';
+  readonly cardIds: readonly string[];
+}
+
 export function gameModeOf(gameType: string): GameMode {
   if (gameType === 'GT_BATTLEGROUNDS') return 'solo';
   if (gameType === 'GT_BATTLEGROUNDS_DUO') return 'duos';
@@ -167,6 +177,8 @@ export interface BgGame {
   readonly players: Readonly<Record<number, BgPlayer>>;
   readonly combats: readonly CombatRecord[];
   readonly nextOpponentPlayerId: number | undefined;
+  /** Choix proposé au joueur local et pas encore fait (héros, bibelots, Découverte…). */
+  readonly choice: LocalChoice | undefined;
   readonly tribes: TribeSightings;
   readonly finalPlace: number | undefined;
   readonly truncated: boolean;
@@ -192,6 +204,7 @@ export const initialBgGame: BgGame = {
   players: {},
   combats: [],
   nextOpponentPlayerId: undefined,
+  choice: undefined,
   tribes: emptyTribeSightings,
   finalPlace: undefined,
   truncated: false,
@@ -278,6 +291,23 @@ export function reduceBgGame(
       );
     }
     return bg;
+  }
+
+  if (event.type === 'choices') {
+    const localId = localPlayer(next)?.playerId;
+    const cards = event.cards;
+    if (cards.length === 0 || localId === undefined || cards.some((c) => c.playerId !== localId))
+      return bg;
+    const kind =
+      event.choiceType === 'MULLIGAN'
+        ? 'hero'
+        : cards.every((c) => c.cardId.includes('_MagicItem_'))
+          ? 'trinket'
+          : 'other';
+    return { ...bg, choice: { id: event.id, kind, cardIds: cards.map((c) => c.cardId) } };
+  }
+  if (event.type === 'chosen') {
+    return bg.choice?.id === event.id ? { ...bg, choice: undefined } : bg;
   }
 
   if (event.type === 'blockStart' && event.blockType === 'ATTACK') {

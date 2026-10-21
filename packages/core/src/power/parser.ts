@@ -80,6 +80,14 @@ export class PowerParser {
   private lastTimeMs = 0;
   readonly diagnostics: ParserDiagnostics = { unrecognized: 0, samples: [] };
 
+  /** Choix en cours de description (`DebugPrintEntityChoices` / `DebugPrintEntitiesChosen`). */
+  private choice: {
+    readonly at: EventPosition;
+    readonly id: number;
+    readonly choiceType: string | undefined;
+    readonly cards: { cardId: string; playerId: number }[];
+  } | null = null;
+
   /** Ligne GameState coupée en cours de recollage (voir `feed`). */
   private split: { text: string; parts: number } | null = null;
 
@@ -120,6 +128,35 @@ export class PowerParser {
     const out: PowerEvent[] = [];
     if (line.kind === 'log') this.lastTimeMs = line.timeMs;
     const at: EventPosition = { line: this.lineNo, timeMs: this.lastTimeMs };
+
+    // Choix proposés / faits (lignes vérifiées sur les fixtures bg-solo-* du 21/10/2026) :
+    //   DebugPrintEntityChoices() - id=4 Player=… TaskList=1132 ChoiceType=GENERAL CountMin=1 …
+    //   DebugPrintEntityChoices() -   Entities[0]=[entityName=… id=2545 … cardId=BG30_123 player=8]
+    //   DebugPrintEntitiesChosen() - id=4 Player=… EntitiesCount=1
+    const choiceLine =
+      line.kind === 'log' &&
+      line.source === 'GameState' &&
+      (line.method === 'DebugPrintEntityChoices' || line.method === 'DebugPrintEntitiesChosen');
+    if (choiceLine) {
+      const body = line.body.trim();
+      const head = RE_CHOICE_HEAD.exec(body);
+      if (head !== null) {
+        this.flushChoice(out);
+        this.choice = {
+          at,
+          id: Number(head[1]),
+          choiceType: line.method === 'DebugPrintEntityChoices' ? (head[2] ?? '') : undefined,
+          cards: [],
+        };
+        return out;
+      }
+      const ent = RE_CHOICE_ENTITY.exec(body);
+      if (ent !== null && this.choice !== null) {
+        this.choice.cards.push({ cardId: ent[1] ?? '', playerId: Number(ent[2]) });
+      }
+      return out; // `Source=…` et autres détails : ignorés
+    }
+    this.flushChoice(out);
 
     if (isTruncationLine(line)) {
       this.flushInto(out);
@@ -253,6 +290,17 @@ export class PowerParser {
     out.push({ ...p.head, at: p.at, tags: p.tags });
   }
 
+  private flushChoice(out: PowerEvent[]): void {
+    const c = this.choice;
+    if (c === null) return;
+    this.choice = null;
+    out.push(
+      c.choiceType === undefined
+        ? { type: 'chosen', at: c.at, id: c.id, cards: c.cards }
+        : { type: 'choices', at: c.at, id: c.id, choiceType: c.choiceType, cards: c.cards },
+    );
+  }
+
   private unrecognized(text: string): void {
     this.diagnostics.unrecognized++;
     if (this.diagnostics.samples.length < this.maxSamples) this.diagnostics.samples.push(text);
@@ -260,6 +308,10 @@ export class PowerParser {
 }
 
 const MAX_SPLIT_PARTS = 4;
+
+const RE_CHOICE_HEAD =
+  /^id=(\d+) Player=.*?(?: TaskList=\S*)?(?: ChoiceType=(\w+)| EntitiesCount=\d+)/;
+const RE_CHOICE_ENTITY = /^Entities\[\d+\]=\[.*\bcardId=(\S*) player=(\d+)\]$/;
 
 function hasOpenBracket(text: string): boolean {
   let depth = 0;

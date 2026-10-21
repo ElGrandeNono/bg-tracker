@@ -3,6 +3,7 @@ import {
   type BgGame,
   type BoardMinion,
   type GameMode,
+  type LocalChoice,
   type Outcome,
   type Phase,
 } from '../bg/bgGame.js';
@@ -151,6 +152,8 @@ export interface VisibleView<V extends SeasonViewBase = SeasonViewBase> {
     | undefined;
   /** Plafond de dégâts du combat (`BACON_COMBAT_DAMAGE_CAP` si `_ENABLED=1`), sinon absent. */
   readonly damageCap: number | undefined;
+  /** Choix affiché au joueur local (héros proposés, bibelots…) tant qu'il n'est pas fait. */
+  readonly choice: LocalChoice | undefined;
   /** Vue du module de saison (trinkets, dons, compteurs…), construite par lui seul. */
   readonly season: V | undefined;
 }
@@ -376,6 +379,7 @@ export function buildVisibleView<V extends SeasonViewBase = SeasonViewBase>(
           }
         : undefined,
     damageCap: damageCap(state),
+    choice: live ? bg.choice : undefined,
     season,
   };
 }
