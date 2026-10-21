@@ -15,6 +15,7 @@ Tracker Hearthstone Battlegrounds : Electron + TypeScript strict + React, monore
 | Overlay en direct / replay / démo navigateur | `pnpm overlay` · `pnpm overlay:replay <log> --speed 10` · `pnpm overlay:demo` (UI seule, port 5199)     |
 | Capture de contrôle Electron                 | `apps/overlay`: `electron . --replay <log> --smoke <out.png>` (`BGT_DEBUG=1` pour le journal)           |
 | Installeur Windows (après `pnpm build`)      | `pnpm --filter @bgt/overlay package` (`package:dir` = appli décompressée, plus rapide)                  |
+| Précision du simulateur (après build)        | `node scripts/sim-eval.mjs <Power.log                                                                   | .gz | dossier Logs>` : prédiction vs issue réelle de chaque combat |
 | Replay (build puis chronologie console)      | `pnpm replay <fichier.log\|.gz\|.zip> [--speed N] [--quiet]` (`--speed 0` = instantané, 1 = temps réel) |
 
 Windows : Node et pnpm sont installés mais un shell ouvert avant l'installation n'a pas le PATH à jour (`C:\Program Files\nodejs`, `%APPDATA%\npm`).

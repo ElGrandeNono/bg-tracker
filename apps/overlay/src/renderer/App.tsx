@@ -587,8 +587,8 @@ function Counters({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const l = p.view.local;
   const spells = p.view.season?.counters.tavernSpellBuff;
   const items: { key: string; icon: keyof typeof ICONS; value: string; hint: string }[] = [];
-  // Toujours affiché pendant le recrutement (0 compris) : on voit que le compteur est suivi.
-  if (l.freeRefreshes !== undefined) {
+  // Seulement quand il en reste au moins un.
+  if (l.freeRefreshes !== undefined && l.freeRefreshes > 0) {
     items.push({
       key: 'r',
       icon: 'refresh',
