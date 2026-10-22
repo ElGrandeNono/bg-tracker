@@ -135,7 +135,6 @@ const fr = {
     pick: 'choisi',
     avg: 'place moy.',
     none: 'pas de stats',
-    distribution: (d: string) => `Places 1 à 8 : ${d}`,
   },
   counters: {
     freeRefresh: (n: number) => `Rafraîchissements gratuits : ${n}`,
@@ -490,7 +489,6 @@ const en: Messages = {
     pick: 'picked',
     avg: 'avg place',
     none: 'no stats',
-    distribution: (d) => `Places 1 to 8: ${d}`,
   },
   counters: {
     freeRefresh: (n) => `Free refreshes: ${n}`,

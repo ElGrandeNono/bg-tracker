@@ -83,7 +83,7 @@ export interface PanelPosition {
   readonly y: number;
 }
 
-export type PanelId = 'status' | 'players' | 'sim' | 'counters' | 'choice';
+export type PanelId = 'status' | 'players' | 'sim' | 'counters';
 
 export type Theme = 'dark' | 'light' | 'contrast';
 export type Language = 'fr' | 'en';
@@ -192,7 +192,6 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
     players: { x: 0.004, y: 0.1 },
     sim: { x: 0.4, y: 0.008 },
     counters: { x: 0.63, y: 0.8 },
-    choice: { x: 0.33, y: 0.7 },
   },
   backdrop: false,
 };

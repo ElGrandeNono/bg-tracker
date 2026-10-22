@@ -129,28 +129,31 @@ export function demoBridge(): BgtBridge {
   };
 }
 
-/** `?choice` : choix de bibelots avec des stats INVENTÉES (synthetic), pour l'UI seulement. */
+/**
+ * `?choice` (bibelots) ou `?choice=hero` : quatre options avec des stats INVENTÉES (synthetic),
+ * pour l'UI seulement.
+ */
 function withDemoChoice(p: OverlayPayload): OverlayPayload {
-  const opt = (cardId: string, pickRate: number, avgPlacement: number, variants?: number) => ({
+  const hero = new URLSearchParams(location.search).get('choice') === 'hero';
+  const opt = (cardId: string, pickRate: number, avgPlacement?: number, variants?: number) => ({
     cardId,
-    stats: {
-      pickRate,
-      avgPlacement,
-      distribution: variants === undefined ? [0.2, 0.15, 0.15, 0.1, 0.1, 0.1, 0.1, 0.1] : undefined,
-      variants,
-    },
+    stats: { pickRate, avgPlacement, distribution: undefined, variants },
   });
   return {
     ...p,
-    names: {
-      ...p.names,
-      DEMO_T1: 'Portrait éternel',
-      DEMO_T2: 'Boussole colorée',
-      DEMO_T3: 'Médaillon du chasseur',
-    },
-    choiceStats: {
-      kind: 'trinket',
-      options: [opt('DEMO_T1', 0.3, 3.8), opt('DEMO_T2', 0.45, 3.4, 2), opt('DEMO_T3', 0.25, 4.1)],
-    },
+    choiceStats: hero
+      ? {
+          kind: 'hero',
+          options: [opt('D1', 0.533), opt('D2', 0.38), opt('D3', 0.192), opt('D4', 0.257)],
+        }
+      : {
+          kind: 'trinket',
+          options: [
+            opt('D1', 0.3, 3.8),
+            opt('D2', 0.45, 3.4, 2),
+            opt('D3', 0.25, 4.1),
+            opt('D4', 0.2, 4.5),
+          ],
+        },
   };
 }

@@ -584,7 +584,19 @@ function TribeIcons({
  * Stats des héros / bibelots proposés (copie HSReplay faite par le joueur), dans l'ordre du jeu.
  * La meilleure place moyenne (ou, à défaut, le plus fort taux de choix) est mise en avant.
  */
-function ChoicePanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
+/**
+ * Emplacement des cartes proposées, mesuré sur deux captures de la fenêtre du jeu (22/10/2026,
+ * 1575×1007 et 1580×1010) : le jeu centre la rangée et l'échelonne selon la HAUTEUR de la fenêtre.
+ * Écart entre deux cartes et bas du badge en fraction de hauteur ; centre décalé de 0,8 %.
+ */
+const CHOICE_LAYOUT = {
+  hero: { spacing: 0.3195, bottom: 0.29 },
+  trinket: { spacing: 0.257, bottom: 0.275 },
+} as const;
+const CHOICE_CENTER_DX = 0.008;
+
+/** Stats externes au-dessus de chaque carte proposée (héros, bibelots), façon HSReplay. */
+function ChoiceBadges({ p }: { p: OverlayPayload }): React.JSX.Element | null {
   const m = useI18n();
   const c = p.choiceStats;
   if (c === undefined || c.options.every((o) => o.stats === undefined)) return null;
@@ -599,45 +611,46 @@ function ChoicePanel({ p }: { p: OverlayPayload }): React.JSX.Element | null {
         ).cardId
       : c.options.reduce((a, b) => ((a.stats?.pickRate ?? 0) >= (b.stats?.pickRate ?? 0) ? a : b))
           .cardId;
+  const layout = c.kind === 'hero' ? CHOICE_LAYOUT.hero : CHOICE_LAYOUT.trinket;
+  const n = c.options.length;
   return (
-    <section className="choice">
-      <h3 className="choice__title">{c.kind === 'hero' ? m.choice.heroes : m.choice.trinkets}</h3>
-      <ol className="choice__options">
-        {c.options.map((o) => {
-          const s = o.stats;
-          return (
-            <li
-              key={o.cardId}
-              className={`choice__option ${o.cardId === best ? 'choice__option--best' : ''}`}
-              title={
-                s?.distribution === undefined
-                  ? undefined
-                  : m.choice.distribution(s.distribution.map((d) => pct(d)).join(' · '))
-              }
-            >
-              <span className="choice__name">
-                {nameOf(p.names, o.cardId)}
-                {s?.variants !== undefined && <small> ≈</small>}
-              </span>
-              {s === undefined ? (
-                <small>{m.choice.none}</small>
-              ) : (
-                <>
-                  {s.avgPlacement !== undefined && (
-                    <span>
-                      <b>{avg(s.avgPlacement)}</b> <small>{m.choice.avg}</small>
-                    </span>
-                  )}
-                  <span>
-                    <b>{pct(s.pickRate)}</b> <small>{m.choice.pick}</small>
+    <div
+      className="choice-badges"
+      aria-label={c.kind === 'hero' ? m.choice.heroes : m.choice.trinkets}
+    >
+      {c.options.map((o, i) => {
+        const s = o.stats;
+        const dx = CHOICE_CENTER_DX + (i - (n - 1) / 2) * layout.spacing;
+        return (
+          <div
+            key={o.cardId}
+            className={`choice-badge ${o.cardId === best ? 'choice-badge--best' : ''}`}
+            style={{ left: `calc(50vw + ${dx * 100}vh)`, top: `${layout.bottom * 100}vh` }}
+            title={nameOf(p.names, o.cardId)}
+          >
+            {s === undefined ? (
+              <small>{m.choice.none}</small>
+            ) : (
+              <>
+                {s.avgPlacement !== undefined && (
+                  <span className="choice-badge__cell">
+                    <small>{m.choice.avg}</small>
+                    <b>
+                      {avg(s.avgPlacement)}
+                      {s.variants !== undefined && ' ≈'}
+                    </b>
                   </span>
-                </>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+                )}
+                <span className="choice-badge__cell">
+                  <small>{m.choice.pick}</small>
+                  <b>{pct(s.pickRate)}</b>
+                </span>
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -944,8 +957,7 @@ export function App({ bridge }: { bridge: BgtBridge }): React.JSX.Element | null
           {view.isBattlegrounds &&
             view.mode !== 'unknown' &&
             s.choiceStats &&
-            payload.choiceStats !== undefined &&
-            panel('choice', <ChoicePanel p={payload} />)}
+            payload.choiceStats !== undefined && <ChoiceBadges p={payload} />}
         </div>
       </TribeArtContext.Provider>
     </BridgeContext.Provider>
